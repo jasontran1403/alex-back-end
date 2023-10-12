@@ -1,0 +1,15 @@
+package com.alex.user;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+public interface ProfitRepository extends JpaRepository<Profit, Long>{
+	@Query(value="select * from profit where exness_id = ?1", nativeQuery=true)
+	List<Profit> getCommissionByExnessId(String exnessId);
+	
+	@Query(value="select * from profit where exness_id = ?1 and time >= ?2 and time <= ?3 order by time asc", nativeQuery=true)
+	List<Profit> getCommissionByExnessIdAndTime(String exnessId, long from, long to);
+
+}
