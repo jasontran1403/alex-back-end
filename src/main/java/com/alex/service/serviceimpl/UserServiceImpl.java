@@ -61,14 +61,13 @@ public class UserServiceImpl implements UserService {
 			commissions = commissRepo.getCommissionByExnessId(exnessId);
 		}
 		InfoResponse result = new InfoResponse();
-		result.setProfit(exness.get().getUser().getProfit());
+		result.setProfit(exness.get().getBalance());
 		result.setCommission(exness.get().getUser().getCommission());
 		result.setProfits(profits);
 		result.setCommissions(commissions);
-		List<Balance> balances = balanceRepo.findByUserByTime(exness.get().getUser().getId(), from, to);
+		List<Balance> balances = balanceRepo.findByExnessByTime(exness.get().getExness(), from, to);
 		result.setBalances(balances);
 
-		// TODO Auto-generated method stub
 		return result;
 	}
 
@@ -97,7 +96,7 @@ public class UserServiceImpl implements UserService {
 		// TODO Auto-generated method stub
 		Balance balance = new Balance();
 		Exness exness = exRepo.findByExness(exnessId).get();
-		balance.setUser(exness.getUser());
+		balance.setExnessId(exness.getExness());
 		balance.setAmount(amount);
 		balance.setTime(time);
 		return balanceRepo.save(balance);
@@ -130,9 +129,12 @@ public class UserServiceImpl implements UserService {
 
 		List<Profit> profits = new ArrayList<>();
 		List<Commission> commissions = new ArrayList<>();
+		List<Balance> balances = new ArrayList<>();
+		double balance = 0.0;
 
 		if (from > 0 && to > 0) {
 			for (Exness exness : user.get().getExnessList()) {
+				balance += exness.getBalance();
 				List<Profit> profitsFromCriteria = proRepo.getCommissionByExnessIdAndTime(exness.getExness(), from, to);
 				if (profitsFromCriteria.size() > 0) {
 					for (Profit profit : profitsFromCriteria) {
@@ -147,22 +149,47 @@ public class UserServiceImpl implements UserService {
 						commissions.add(commission);
 					}
 				}
+				
+				List<Balance> balanceFromCriteria = balanceRepo.findByExnessByTime(exness.getExness(), from, to);
+				if (balanceFromCriteria.size() > 0) {
+					for (Balance balanceItem : balanceFromCriteria) {
+						balances.add(balanceItem);
+					}
+				}
+				
 			}
-
-		} else {
-//			profits = proRepo.getCommissionByExnessId(exnessId);
-//			commissions = commissRepo.getCommissionByExnessId(exnessId);
 		}
+		
 		InfoResponse result = new InfoResponse();
-		result.setProfit(user.get().getProfit());
+		result.setProfit(balance);
 		result.setCommission(user.get().getCommission());
 		result.setProfits(profits);
 		result.setCommissions(commissions);
-		List<Balance> balances = balanceRepo.findByUser(user.get().getId());
 		result.setBalances(balances);
-
+		
+		
 		// TODO Auto-generated method stub
 		return result;
 	}
 
+	@Override
+	public Exness updateBalanceExness(String exness, double amount) {
+		// TODO Auto-generated method stub
+		Exness item = exRepo.findByExness(exness).get();
+		item.setBalance(amount);
+		return exRepo.save(item);
+	}
+
+	@Override
+	public void updateTotalProfit(String exnessId, double amount) {
+		// TODO Auto-generated method stub
+		Exness exness = exRepo.findByExness(exnessId).get();
+		User user = exness.getUser();
+		user.setPrev(user.getPrev() + amount);
+		userRepo.save(user);
+	}
+
 }
+
+
+

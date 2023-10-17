@@ -9,5 +9,5 @@ public interface PrevService {
 	void updatePrev(PrevRequest request);
 	Prev findByExnessId(String exnessid);
 	Prev initPrev(String email);
-	void updatePrevData(String exnessId, double balance, double profit, double transaction);
+	void updatePrevData(String exnessId, double balance, double profit, double deposit, double withdraw);
 }

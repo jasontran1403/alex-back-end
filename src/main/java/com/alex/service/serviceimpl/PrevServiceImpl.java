@@ -34,7 +34,8 @@ public class PrevServiceImpl implements PrevService{
 		PreviousMonthResponse result = new PreviousMonthResponse();
 		result.setBalance(prev.get().getBalance());
 		result.setCommission(prev.get().getCommission());
-		result.setTransaction(prev.get().getTransaction());
+		result.setDeposit(prev.get().getDeposit());
+		result.setWithdraw(prev.get().getWithdraw());
 		return result;
 	}
 
@@ -46,7 +47,8 @@ public class PrevServiceImpl implements PrevService{
 		prev.setUser(user);
 		prev.setBalance(request.getBalance());
 		prev.setCommission(request.getCommission());
-		prev.setTransaction(request.getTransaction());
+		prev.setDeposit(request.getDeposit());
+		prev.setWithdraw(request.getWithdraw());
 		prevRepo.save(prev);
 		
 	}
@@ -69,13 +71,14 @@ public class PrevServiceImpl implements PrevService{
 	}
 
 	@Override
-	public void updatePrevData(String exnessId, double balance, double profit, double transaction) {
+	public void updatePrevData(String exnessId, double balance, double profit, double deposit, double withdraw) {
 		// TODO Auto-generated method stub
 		Exness exness = exRepo.findByExness(exnessId).get();
 		Prev prev = prevRepo.getPrevByUser(exness.getUser()).get();
 		prev.setBalance(balance);
 		prev.setCommission(profit);
-		prev.setTransaction(transaction);
+		prev.setDeposit(deposit);
+		prev.setWithdraw(withdraw);
 		prevRepo.save(prev);
 	}
 

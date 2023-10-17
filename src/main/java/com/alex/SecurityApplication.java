@@ -1,15 +1,14 @@
 package com.alex;
 
-import com.alex.auth.AuthenticationService;
-import com.alex.auth.RegisterRequest;
-import com.alex.user.Role;
+import static com.alex.user.Role.ADMIN;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
-import static com.alex.user.Role.ADMIN;
-import static com.alex.user.Role.MANAGER;
+import com.alex.auth.AuthenticationService;
+import com.alex.auth.RegisterRequest;
 
 @SpringBootApplication
 public class SecurityApplication {
@@ -27,7 +26,7 @@ public class SecurityApplication {
 //					.firstname("Admin")
 //					.lastname("Admin")
 //					.email("admin@gmail.com")
-//					.password("password")
+//					.password("123")
 //					.role(ADMIN)
 //					.build();
 //			System.out.println("Admin token: " + service.register(admin).getAccessToken());

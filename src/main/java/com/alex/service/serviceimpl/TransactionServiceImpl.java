@@ -39,4 +39,10 @@ public class TransactionServiceImpl implements TransactionService{
 		return listResult;
 	}
 
+	@Override
+	public Transaction saveTransaction(Transaction transaction) {
+		// TODO Auto-generated method stub
+		return transactionRepo.save(transaction);
+	}
+
 }

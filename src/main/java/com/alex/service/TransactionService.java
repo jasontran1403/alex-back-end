@@ -6,5 +6,5 @@ import com.alex.user.Transaction;
 
 public interface TransactionService {
 	List<Transaction> findTransactionByEmail(String email);
-
+	Transaction saveTransaction(Transaction transaction);
 }

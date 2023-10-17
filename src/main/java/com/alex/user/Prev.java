@@ -25,7 +25,8 @@ public class Prev {
 	private long id;
 	private double balance;
 	private double commission;
-	private double transaction;
+	private double deposit;
+	private double withdraw;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_id")

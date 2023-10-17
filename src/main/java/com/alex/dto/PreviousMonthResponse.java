@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PreviousMonthResponse {
 	private double balance;
+	private double profit;
 	private double commission;
-	private double transaction;
+	private double deposit;
+	private double withdraw;
 }

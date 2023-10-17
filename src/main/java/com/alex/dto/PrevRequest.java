@@ -13,5 +13,6 @@ public class PrevRequest {
 	private String email;
 	private double balance;
 	private double commission;
-	private double transaction;
+	private double deposit;
+	private double withdraw;
 }

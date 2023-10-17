@@ -1,8 +1,6 @@
 package com.alex.auth;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -13,8 +11,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.alex.service.ExnessService;
 import com.alex.service.PrevService;
+import com.alex.service.TransactionService;
 import com.alex.service.UserService;
+import com.alex.user.Transaction;
 import com.alex.user.UserRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,42 +31,45 @@ public class AuthenticationController {
 	private final AuthenticationService service;
 	private final PrevService prevService;
 	private final UserService userService;
+	private final ExnessService exService;
+	private final TransactionService tranService;
 	
-	@GetMapping("/insert-data/exnessId={exnessId}&profit={profit}")
-	public ResponseEntity<String> insertData(@PathVariable("exnessId") String exnessId, @PathVariable("profit") double profit) {
-		System.out.println("ExnessId= " + exnessId);
-		System.out.println("Profit= " + profit);
-		System.out.println("-------");
+	@GetMapping("/transfer-transaction/exnessId={exnessId}&transaction={type}&amount={amount}&time={time}")
+	public ResponseEntity<String> insertData(@PathVariable("exnessId") String exnessId, @PathVariable("type") int type,
+			@PathVariable("amount") double amount, @PathVariable("time") long time) {
+		System.out.println("ExnessId= " + exnessId + " type= " + type + " amount= " + amount + " time= " + time);
+		String transactionType;
+		if (type == 0) {
+			transactionType = "Withdraw";
+		} else {
+			transactionType = "Deposit";
+		}
+		
+		Transaction transaction = new Transaction();
+		transaction.setExnessId(exnessId);
+		transaction.setAmount(Math.abs(amount));
+		transaction.setType(transactionType);
+		transaction.setTime(time);
+		tranService.saveTransaction(transaction);
+		
+
 		return ResponseEntity.ok("OK");
 	}
 	
-	@GetMapping("/transfer-data/exnessId={exnessId}&balance={balance}&profit={profit}&withdraw={withdraw}&deposit={deposit}")
+	@GetMapping("/transfer-data/exnessId={exnessId}&balance={balance}&profit={profit}")
 	public ResponseEntity<String> insertData(@PathVariable("exnessId") String exnessId, 
-			@PathVariable("balance") double balance, @PathVariable("profit") double profit, 
-			@PathVariable("withdraw") double withdraw, @PathVariable("deposit") double deposit) {
-		System.out.println("ExnessId= " + exnessId + " - Balance=" + balance + " - Profit=" + profit + " - Withdraw=" + withdraw + " - Deposit=" + deposit);
+			@PathVariable("balance") double balance, @PathVariable("profit") double profit) {
+		System.out.println("ExnessId= " + exnessId + " - Balance=" + balance + " - Profit=" + profit);
+
 		long time = System.currentTimeMillis() / 1000;
+		// 1) luu profit cua ngay truoc do
 		userService.saveProfit(exnessId, profit, time);
+		// 2) luu balance cua ngay truoc do
 		userService.saveBalance(exnessId, balance, time);
-		if (withdraw < 0) {
-			userService.saveTransaction(exnessId, withdraw, time);
-		}
-		if (deposit > 0) {
-			userService.saveTransaction(exnessId, deposit, time);
-		}
-		
-		Date date = new Date();
-
-        // Định dạng ngày trong tháng bằng cách sử dụng SimpleDateFormat
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd"); // "dd" đại diện cho ngày trong tháng
-
-        // Lấy ngày trong tháng từ đối tượng Date
-        String dayOfMonth = dateFormat.format(date);
-        if (dayOfMonth.equals("01")) {
-        	prevService.updatePrevData(exnessId, balance, profit, deposit-withdraw);
-        }
-		
-		
+		// 3) cap nhat balance
+		userService.updateBalanceExness(exnessId, balance);
+		// 4) cap nhat tong profit
+		exService.updateTotalProfit(exnessId, profit);
 		return ResponseEntity.ok("OK");
 	}
 	

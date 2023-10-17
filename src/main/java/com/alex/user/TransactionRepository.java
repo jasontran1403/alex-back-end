@@ -9,4 +9,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>{
 	@Query(value="select * from transaction where exness_id = ?1 order by time desc", nativeQuery = true)
 	List<Transaction> findTransactionByExnessId(String exness);
 
+	@Query(value="select * from transaction where exness_id = ?1 and type = ?2 order by time desc", nativeQuery = true)
+	List<Transaction> findTransactionByExnessIdAndType(String exness, String type);
 }

@@ -89,7 +89,13 @@ public class DemoController {
 
 	@GetMapping("/get-prev-data/{email}")
 	public ResponseEntity<PreviousMonthResponse> getPreviousMonthData(@PathVariable("email") String email) {
-		PreviousMonthResponse result = prevService.findPrevByEmail(email);
+		PreviousMonthResponse result = new PreviousMonthResponse();
+		if (email.contains("@")) {
+			result = exService.findByEmail(email);
+		} else {
+			result = exService.findByExness(email);
+		}
+		
 		return ResponseEntity.ok(result);
 	}
 

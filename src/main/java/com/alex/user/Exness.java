@@ -24,6 +24,9 @@ public class Exness {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
 	private String exness;
+	private double balance;
+	private double prevBalance;
+	private double totalProfit;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_id")

@@ -40,7 +40,7 @@ public class User implements UserDetails {
 	private String refferal;
 	private String code;
 	private double commission;
-	private double profit;
+	private double prev;
 	private boolean mfaEnabled;
 	private String secret;
 	private int level;
@@ -48,10 +48,6 @@ public class User implements UserDetails {
 	@OneToMany(mappedBy = "user")
 	@JsonIgnore
 	private List<Message> messageList;
-	
-	@OneToMany(mappedBy = "user")
-	@JsonIgnore
-	private List<Balance> balances;
 	
 	@OneToMany(mappedBy = "user")
 	@JsonIgnore
