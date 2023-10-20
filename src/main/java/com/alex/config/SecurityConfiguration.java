@@ -44,9 +44,9 @@ public class SecurityConfiguration {
 	        .authenticationProvider(authenticationProvider)
 	        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 	        
-	    http.exceptionHandling()
-	    .authenticationEntryPoint(new CustomAuthenticationEntryPoint())
-	    .accessDeniedHandler(new CustomAccessDeniedHandler());
+//	    http.exceptionHandling()
+//	    .authenticationEntryPoint(new CustomAuthenticationEntryPoint())
+//	    .accessDeniedHandler(new CustomAccessDeniedHandler());
 
 	    http.cors();
 

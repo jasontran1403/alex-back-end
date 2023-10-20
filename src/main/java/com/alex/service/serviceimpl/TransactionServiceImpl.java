@@ -45,4 +45,10 @@ public class TransactionServiceImpl implements TransactionService{
 		return transactionRepo.save(transaction);
 	}
 
+	@Override
+	public List<Transaction> findByAmountAndTimeAndExness(double amount, long time, String exness) {
+		// TODO Auto-generated method stub
+		return transactionRepo.findTransactionByAmountAndTimeAndExness(amount, time, exness);
+	}
+
 }

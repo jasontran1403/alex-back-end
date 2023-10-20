@@ -84,7 +84,7 @@ public class AuthenticationService {
 		var refreshToken = jwtService.generateRefreshToken(user);
 		saveUserToken(savedUser, jwtToken);
 		
-		prevService.initPrev(request.getEmail());
+		//prevService.initPrev(request.getEmail());
 		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
 	}
 	
@@ -92,6 +92,7 @@ public class AuthenticationService {
 		User user = repository.findByEmail(request.getEmail()).get();
 		user.setFirstname(request.getFirstName());
 		user.setLastname(request.getLastName());
+		user.setBio(request.getBio());
 		repository.save(user);
 	}
 
@@ -431,6 +432,7 @@ public class AuthenticationService {
 		result.put("refCode", user.get().getCode());
 		result.put("firstName", user.get().getFirstname());
 		result.put("lastName", user.get().getLastname());
+		result.put("bio", user.get().getBio());
 		return result;
 	}
 

@@ -3,6 +3,7 @@ package com.alex.auth;
 import java.io.IOException;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
 
@@ -15,13 +16,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.alex.exception.ExistedException;
 import com.alex.exception.NotFoundException;
+import com.alex.service.BalanceService;
 import com.alex.service.ExnessService;
 import com.alex.service.PrevService;
+import com.alex.service.ProfitService;
 import com.alex.service.TransactionService;
 import com.alex.service.UserService;
+import com.alex.user.Balance;
 import com.alex.user.Exness;
 import com.alex.user.ExnessRepository;
+import com.alex.user.Profit;
 import com.alex.user.Transaction;
 import com.alex.user.UserRepository;
 
@@ -41,30 +47,38 @@ public class AuthenticationController {
 	private final ExnessService exService;
 	private final ExnessRepository exRepo;
 	private final TransactionService tranService;
+	private final ProfitService proService;
+	private final BalanceService balanceService;
 
 	@GetMapping("/transfer-transaction/exnessId={exnessId}&transaction={type}&amount={amount}&time={time}")
 	public ResponseEntity<String> insertData(@PathVariable("exnessId") String exnessId, @PathVariable("type") int type,
 			@PathVariable("amount") double amount, @PathVariable("time") long time) {
 		Optional<Exness> exness = exRepo.findByExness(exnessId);
 		if (exness.isEmpty()) {
+			System.out.println("Exness " + exnessId + " is not existed!");
 			throw new NotFoundException("This exness " + exnessId + " is not existed!");
 		}
-		
-		System.out.println("ExnessId= " + exnessId + " type= " + type + " amount= " + amount + " time= " + time);
-		
+
 		String transactionType;
 		if (type == 0) {
 			transactionType = "Withdraw";
 		} else {
 			transactionType = "Deposit";
 		}
-		
-		Transaction transaction = new Transaction();
-		transaction.setExnessId(exnessId);
-		transaction.setAmount(Math.abs(amount));
-		transaction.setType(transactionType);
-		transaction.setTime(time);
-		tranService.saveTransaction(transaction);
+
+		try {
+			Transaction transaction = new Transaction();
+			transaction.setExnessId(exnessId);
+			transaction.setAmount(Math.abs(amount));
+			transaction.setType(transactionType);
+			transaction.setTime(time);
+			tranService.saveTransaction(transaction);
+
+			System.out.println("ExnessId= " + exnessId + " type= " + type + " amount= " + amount + " time= " + time);
+		} catch (Exception e) {
+			System.out.println("Exness ID " + exnessId + " has already saved");
+			throw new ExistedException("Exness ID " + exnessId + " has already saved");
+		}
 
 		return ResponseEntity.ok("OK");
 	}
@@ -74,16 +88,15 @@ public class AuthenticationController {
 			@PathVariable("balance") double balance, @PathVariable("profit") double profit) {
 		Optional<Exness> exness = exRepo.findByExness(exnessId);
 		if (exness.isEmpty()) {
+			System.out.println("Exness " + exnessId + " is not existed!");
 			throw new NotFoundException("This exness " + exnessId + " is not existed!");
 		}
-		
-		System.out.println("ExnessId= " + exnessId + " - Balance=" + balance + " - Profit=" + profit);
 
 		Date currentDate = new Date();
 
 		// Lấy ngày hiện tại
 		TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
-        Calendar calendar = Calendar.getInstance(timeZone);
+		Calendar calendar = Calendar.getInstance(timeZone);
 		calendar.setTime(currentDate);
 
 		// Đặt thời gian thành 00:00:01
@@ -94,16 +107,22 @@ public class AuthenticationController {
 		// Lấy timestamp sau khi đặt thời gian
 		long timestamp = calendar.getTimeInMillis() / 1000 - 86400;
 
-		System.out.println("Timestamp: " + timestamp);
-		
-        // 1) luu profit cua ngay truoc do
-		userService.saveProfit(exnessId, profit, timestamp);
-		// 2) luu balance cua ngay truoc do
-		userService.saveBalance(exnessId, balance, timestamp);
-		// 3) cap nhat balance
-		userService.updateBalanceExness(exnessId, balance);
-		// 4) cap nhat tong profit
-		exService.updateTotalProfit(exnessId, profit);
+		try {
+			// 1) luu profit cua ngay truoc do
+			userService.saveProfit(exnessId, profit, timestamp);
+			// 2) luu balance cua ngay truoc do
+			userService.saveBalance(exnessId, balance, timestamp);
+			// 3) cap nhat balance
+			userService.updateBalanceExness(exnessId, balance);
+			// 4) cap nhat tong profit
+			exService.updateTotalProfit(exnessId, profit);
+
+			System.out.println("ExnessId= " + exnessId + " - Balance=" + balance + " - Profit=" + profit);
+		} catch (Exception e) {
+			System.out.println("Exness ID " + exnessId + " has already saved");
+			throw new ExistedException("Exness ID " + exnessId + " has already saved");
+		}
+
 		return ResponseEntity.ok(String.valueOf(timestamp));
 	}
 

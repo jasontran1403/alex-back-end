@@ -100,7 +100,7 @@ public class DemoController {
 		} else {
 			result = exService.findByExness(email);
 		}
-		
+
 		return ResponseEntity.ok(result);
 	}
 
@@ -173,7 +173,7 @@ public class DemoController {
 		} else {
 			result = userService.getInfoByExnessId(exnessId, from, to);
 		}
-		
+
 		return ResponseEntity.ok(result);
 	}
 
@@ -225,7 +225,8 @@ public class DemoController {
 			}
 
 			if (!"client_account".equals(exnessIdHeader)) {
-				return ResponseEntity.ok("File không đúng định dạng (cột thứ 15 không phải là client_account - Exness ID)");
+				return ResponseEntity
+						.ok("File không đúng định dạng (cột thứ 15 không phải là client_account - Exness ID)");
 			}
 
 			// Lặp qua từng dòng (bắt đầu từ dòng thứ 2, do dòng đầu tiên là tiêu đề)
@@ -267,7 +268,7 @@ public class DemoController {
 			System.out.println(pae);
 			return ResponseEntity.ok("File ở chế độ Protected!");
 		}
-		
+
 		data.forEach((key, value) -> {
 			int firstDashIndex = value.indexOf('-');
 			int secondDashIndex = value.indexOf('-', firstDashIndex + 1);
@@ -279,12 +280,12 @@ public class DemoController {
 			if (userLevel == 1) {
 				amountToInvest = amount * 0.5;
 				amountToDev = amount - amountToInvest;
-			} else if (userLevel == 2){
-				
+			} else if (userLevel == 2) {
+
 			}
-			
+
 		});
-		
+
 		return ResponseEntity.ok("OK");
 	}
 
@@ -314,7 +315,24 @@ public class DemoController {
 			}
 
 			for (User user : users) {
-				network.add(new NetworkDto(user.getEmail(), email, currentLevel));
+				String uploadDirectory = "src/main/resources/assets/avatar";
+				Path uploadPath = Path.of(uploadDirectory);
+				String defaultFileName = "avatar_user_default.png";
+				// Xây dựng tên tệp dựa trên id
+				String fileName = "avatar_user_id_" + user.getId() + ".png";
+				Path filePath = uploadPath.resolve(fileName);
+				byte[] imageBytes = null;
+				if (!Files.exists(filePath)) {
+					filePath = uploadPath.resolve(defaultFileName);
+				}
+
+				try {
+					imageBytes = Files.readAllBytes(filePath);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
+				network.add(new NetworkDto(user.getEmail(), email, imageBytes, currentLevel));
 				getUserNetwork(user.getEmail(), desiredLevel, currentLevel + 1, network);
 			}
 		}
@@ -339,65 +357,123 @@ public class DemoController {
 	public ResponseEntity<HashMap<String, String>> getInfo(@RequestBody RefferalRequest request) {
 		return ResponseEntity.ok(service.getInfo(request.getEmail()));
 	}
-	
+
 	@PostMapping("/upload-avatar")
-	public ResponseEntity<byte[]> uploadAvatar(@RequestParam("file") MultipartFile file, @RequestParam("email") String email) {
+	public ResponseEntity<byte[]> uploadAvatar(@RequestParam("file") MultipartFile file,
+			@RequestParam("email") String email) {
 		User user = userRepo.findByEmail(email).get();
 
-	    try {
-	        // Kiểm tra kiểu MIME của tệp
-	        String contentType = file.getContentType();
-	        if (!contentType.startsWith("image")) {
-	            throw new NotFoundException("No image found");
-	        }
+		try {
+			// Kiểm tra kiểu MIME của tệp
+			String contentType = file.getContentType();
+			if (!contentType.startsWith("image")) {
+				throw new NotFoundException("No image found");
+			}
 
-	        // Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
-	        String uploadDirectory = "src/main/resources/assets/avatar";
-	        Path uploadPath = Path.of(uploadDirectory);
+			// Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
+			String uploadDirectory = "src/main/resources/assets/avatar";
+			Path uploadPath = Path.of(uploadDirectory);
 
-	        // Tạo thư mục nếu nó chưa tồn tại
-	        if (!Files.exists(uploadPath)) {
-	            Files.createDirectories(uploadPath);
-	        }
+			// Tạo thư mục nếu nó chưa tồn tại
+			if (!Files.exists(uploadPath)) {
+				Files.createDirectories(uploadPath);
+			}
 
-	        // Lấy tên tệp từ MultipartFile
-	        String fileName = "avatar_user_id_" + user.getId() + ".png";
-	        Path filePath = uploadPath.resolve(fileName);
+			// Lấy tên tệp từ MultipartFile
+			String fileName = "avatar_user_id_" + user.getId() + ".png";
+			Path filePath = uploadPath.resolve(fileName);
 
-	        // Lưu tệp vào thư mục
-	        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+			// Lưu tệp vào thư mục
+			Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-	        // Trả về thông báo thành công
-		        // Đọc nội dung tệp ảnh
-		        byte[] imageBytes = Files.readAllBytes(filePath);
-		        return ResponseEntity.ok()
-		            .contentType(MediaType.IMAGE_PNG)  // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với định dạng ảnh của bạn)
-		            .body(imageBytes);
-	    } catch (IOException e) {
+			// Trả về thông báo thành công
+			// Đọc nội dung tệp ảnh
+			byte[] imageBytes = Files.readAllBytes(filePath);
+			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
+																		// định dạng ảnh của bạn)
+					.body(imageBytes);
+		} catch (IOException e) {
 			return ResponseEntity.notFound().build();
-	    }
+		}
 	}
-	
+
 	@GetMapping("/avatar/{email}")
 	public ResponseEntity<byte[]> getAvatar(@PathVariable("email") String email) {
-	    // Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
-	    String uploadDirectory = "src/main/resources/assets/avatar";
-	    Path uploadPath = Path.of(uploadDirectory);
-	    
-	    User user = userRepo.findByEmail(email).get();
-	    // Xây dựng tên tệp dựa trên id
-	    String fileName = "avatar_user_id_" + user.getId() + ".png";
-	    Path filePath = uploadPath.resolve(fileName);
+		// Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
+		String uploadDirectory = "src/main/resources/assets/avatar";
+		Path uploadPath = Path.of(uploadDirectory);
 
-	    try {
-	        // Đọc nội dung tệp ảnh
-	        byte[] imageBytes = Files.readAllBytes(filePath);
-	        return ResponseEntity.ok()
-	            .contentType(MediaType.IMAGE_PNG)  // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với định dạng ảnh của bạn)
-	            .body(imageBytes);
-	    } catch (IOException e) {
-	        return ResponseEntity.notFound().build();
-	    }
+		User user = userRepo.findByEmail(email).get();
+		// Xây dựng tên tệp dựa trên id
+		String fileName = "avatar_user_id_" + user.getId() + ".png";
+		Path filePath = uploadPath.resolve(fileName);
+
+		try {
+			// Đọc nội dung tệp ảnh
+			byte[] imageBytes = Files.readAllBytes(filePath);
+			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
+																		// định dạng ảnh của bạn)
+					.body(imageBytes);
+		} catch (IOException e) {
+			return ResponseEntity.notFound().build();
+		}
+	}
+
+	@PostMapping("/upload-banner")
+	public ResponseEntity<byte[]> uploadBanner(@RequestParam("file") MultipartFile file) {
+		try {
+			// Kiểm tra kiểu MIME của tệp
+			String contentType = file.getContentType();
+			if (!contentType.startsWith("image")) {
+				throw new NotFoundException("No image found");
+			}
+
+			// Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
+			String uploadDirectory = "src/main/resources/assets/banner";
+			Path uploadPath = Path.of(uploadDirectory);
+
+			// Tạo thư mục nếu nó chưa tồn tại
+			if (!Files.exists(uploadPath)) {
+				Files.createDirectories(uploadPath);
+			}
+
+			// Lấy tên tệp từ MultipartFile
+			String fileName = "banner.png";
+			Path filePath = uploadPath.resolve(fileName);
+
+			// Lưu tệp vào thư mục
+			Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+			// Trả về thông báo thành công
+			// Đọc nội dung tệp ảnh
+			byte[] imageBytes = Files.readAllBytes(filePath);
+			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
+																		// định dạng ảnh của bạn)
+					.body(imageBytes);
+		} catch (IOException e) {
+			return ResponseEntity.notFound().build();
+		}
+	}
+
+	@GetMapping("/banner")
+	public ResponseEntity<byte[]> getBanner() {
+		// Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
+		String uploadDirectory = "src/main/resources/assets/banner";
+		Path uploadPath = Path.of(uploadDirectory);
+
+		// Xây dựng tên tệp dựa trên id
+		String fileName = "banner.png";
+		Path filePath = uploadPath.resolve(fileName);
+
+		try {
+			// Đọc nội dung tệp ảnh
+			byte[] imageBytes = Files.readAllBytes(filePath);
+			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
+																		// định dạng ảnh của bạn)
+					.body(imageBytes);
+		} catch (IOException e) {
+			return ResponseEntity.notFound().build();
+		}
 	}
 
 	@PostMapping("/change-password")
