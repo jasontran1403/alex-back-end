@@ -6,6 +6,7 @@ import com.alex.user.Commission;
 import com.alex.user.Exness;
 import com.alex.user.Profit;
 import com.alex.user.Transaction;
+import com.alex.user.User;
 
 public interface UserService {
 	InfoResponse getInfoByExnessId(String exnessId, long from, long to);
@@ -16,4 +17,5 @@ public interface UserService {
 	Transaction saveTransaction(String exnessId, double amount, long time);
 	Exness updateBalanceExness(String exness, double amount);
 	void updateTotalProfit(String exnessId, double amount);
+	void updateTotalCommission(User user, double amount);
 }

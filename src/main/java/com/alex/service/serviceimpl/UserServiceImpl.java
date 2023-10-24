@@ -189,6 +189,13 @@ public class UserServiceImpl implements UserService {
 		userRepo.save(user);
 	}
 
+	@Override
+	public void updateTotalCommission(User user, double amount) {
+		// TODO Auto-generated method stub
+		user.setCommission(user.getCommission() + amount);
+		userRepo.save(user);
+	}
+
 }
 
 

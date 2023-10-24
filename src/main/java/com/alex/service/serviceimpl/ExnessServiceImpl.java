@@ -1,6 +1,7 @@
 package com.alex.service.serviceimpl;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -81,6 +82,13 @@ public class ExnessServiceImpl implements ExnessService {
 		Exness exness = exRepo.findByExness(exnessId).get();
 		exness.setTotalProfit(exness.getTotalProfit() + amount);
 		exRepo.save(exness);
+	}
+
+	@Override
+	public Optional<Exness> findByExnessId(String exnessId) {
+		// TODO Auto-generated method stub
+		Optional<Exness> exness = exRepo.findByExness(exnessId);
+		return exness;
 	}
 
 }

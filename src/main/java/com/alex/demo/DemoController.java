@@ -44,6 +44,7 @@ import com.alex.dto.PreviousMonthResponse;
 import com.alex.dto.TwoFARequest;
 import com.alex.dto.UpdateInfoRequest;
 import com.alex.exception.NotFoundException;
+import com.alex.service.CommissionService;
 import com.alex.service.ExnessService;
 import com.alex.service.MessageService;
 import com.alex.service.PrevService;
@@ -86,11 +87,24 @@ public class DemoController {
 	private final QrDataFactory qrDataFactory;
 	private final QrGenerator qrGenerator;
 	private final TransactionService transactionService;
+	private final CommissionService commissService;
 
 	@GetMapping
 	public ResponseEntity<String> sayHello() {
 		return ResponseEntity.ok("Hello from secured endpoint");
 	}
+	
+	@GetMapping("/get-total-commission/{email}")
+	public ResponseEntity<Double> getTotalCommission(@PathVariable("email") String email) {
+		double totalCommission = 0.0;
+		if (email.equalsIgnoreCase("trantuongthuy@gmail.com")) {
+			totalCommission = commissService.getTotalCommission();
+		} else {
+			throw new NotFoundException("You cann't invoke to this information!");
+		}
+		return ResponseEntity.ok(totalCommission);
+	}
+	
 
 	@GetMapping("/get-prev-data/{email}")
 	public ResponseEntity<PreviousMonthResponse> getPreviousMonthData(@PathVariable("email") String email) {
