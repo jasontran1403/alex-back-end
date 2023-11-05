@@ -28,7 +28,7 @@ public class Prev {
 	private double deposit;
 	private double withdraw;
 
-	@ManyToOne(fetch = FetchType.LAZY)
+	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "user_id")
 	public User user;
 }

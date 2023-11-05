@@ -38,6 +38,8 @@ import com.alex.auth.UpdateExnessRequest;
 import com.alex.auth.UpdateRefRequest;
 import com.alex.auth.UpdateRefResponse;
 import com.alex.dto.ChangePasswordRequest;
+import com.alex.dto.ExnessResponse;
+import com.alex.dto.HistoryResponse;
 import com.alex.dto.InfoResponse;
 import com.alex.dto.NetworkDto;
 import com.alex.dto.PreviousMonthResponse;
@@ -46,10 +48,15 @@ import com.alex.dto.UpdateInfoRequest;
 import com.alex.exception.NotFoundException;
 import com.alex.service.CommissionService;
 import com.alex.service.ExnessService;
+import com.alex.service.HistoryService;
+import com.alex.service.ImageUploadService;
 import com.alex.service.MessageService;
 import com.alex.service.PrevService;
 import com.alex.service.TransactionService;
 import com.alex.service.UserService;
+import com.alex.user.Exness;
+import com.alex.user.ExnessRepository;
+import com.alex.user.History;
 import com.alex.user.Message;
 import com.alex.user.Transaction;
 import com.alex.user.User;
@@ -81,6 +88,8 @@ public class DemoController {
 	private final UserService userService;
 	private final MessageService messService;
 	private final ExnessService exService;
+	private final ExnessRepository exRepo;
+	private final HistoryService hisService;
 	private final PrevService prevService;
 	private final SecretGenerator secretGenerator;
 	private final PasswordEncoder passwordEncoder;
@@ -88,10 +97,41 @@ public class DemoController {
 	private final QrGenerator qrGenerator;
 	private final TransactionService transactionService;
 	private final CommissionService commissService;
-
+	private final ImageUploadService uploadService;
+	
+	@GetMapping("/active-exness/{exness}")
+	public ResponseEntity<String> activeExness(@PathVariable("exness") String exness) {
+		service.activeExness(exness);
+		return ResponseEntity.ok("OK");
+	}
+	
 	@GetMapping
 	public ResponseEntity<String> sayHello() {
 		return ResponseEntity.ok("Hello from secured endpoint");
+	}
+	
+	@GetMapping("/get-all-exness/email={email}")
+    public ResponseEntity<List<ExnessResponse>> get(@PathVariable("email") String email) {
+    	List<ExnessResponse> listExness = service.getAllExness(email);
+        return ResponseEntity.ok(listExness);
+    }
+	
+	@GetMapping("/getHistoryLisa/{email}")
+	public ResponseEntity<List<HistoryResponse>> getHistoryByEmailLisa(@PathVariable("email") String email) {
+		List<History> listHistories = hisService.findHistoryByReceiver(email);
+		List<HistoryResponse> listHistoryResponse = new ArrayList<>();
+		for (History history : listHistories) {
+			HistoryResponse historyResponse = new HistoryResponse();
+			historyResponse.setSender(history.getSender());
+			historyResponse.setReceiver(history.getReceiver());
+			historyResponse.setAmount(history.getAmount());
+			historyResponse.setMessage(history.getMessage());
+			historyResponse.setTime(history.getTime());
+			historyResponse.setTransaction(history.getTransaction());
+			listHistoryResponse.add(historyResponse);
+		}
+
+		return ResponseEntity.ok(listHistoryResponse);
 	}
 	
 	@GetMapping("/get-total-commission/{email}")
@@ -117,6 +157,37 @@ public class DemoController {
 
 		return ResponseEntity.ok(result);
 	}
+	
+//	@PostMapping("/withdraw-ib")
+//	public ResponseEntity<String> withdrawIB(@RequestBody WithdrawRequest request) {
+//		String message = "[Withdraw] " + request.getEmail() + " rút " + request.getAmount();
+//		User user = userRepo.findByEmail(request.getEmail()).get();
+//		if (request.getAmount() > user.getBalance() - 0.1) {
+//			return ResponseEntity.ok("Không đủ số dư để rút, luôn phải chừa lại 1 cent ~ $0.1");
+//		}
+//
+//		TimeProvider timeProvider = new SystemTimeProvider();
+//		CodeGenerator codeGenerator = new DefaultCodeGenerator();
+//		DefaultCodeVerifier verify = new DefaultCodeVerifier(codeGenerator, timeProvider);
+//		verify.setAllowedTimePeriodDiscrepancy(0);
+//
+//		if (verify.isValidCode(user.getSecret(), request.getCode())) {
+//			user.setBalance(user.getBalance() - request.getAmount());
+//			userRepo.save(user);
+//
+//			Transaction transaction = new Transaction();
+//			transaction.setTime(String.valueOf(System.currentTimeMillis() / 1000));
+//			transaction.setStatus(0);
+//			transaction.setWithdrawer(request.getEmail());
+//			transaction.setAmount(request.getAmount());
+//			tranRepo.save(transaction);
+//
+//			tele.sendMessageToChat(Long.parseLong("-1001804531952"), message);
+//			return ResponseEntity.ok("Rút thành công!");
+//		} else {
+//			return ResponseEntity.ok("Mã 2FA không chính xác!");
+//		}
+//	}
 
 	@GetMapping("/showQR/{email}")
 	public List<String> generate2FA(@PathVariable("email") String email)
@@ -189,6 +260,27 @@ public class DemoController {
 		}
 
 		return ResponseEntity.ok(result);
+	}
+	
+	@PostMapping("/upload-transaction")
+	public ResponseEntity<String> uploadTransaction(@RequestParam("file") MultipartFile file, @RequestParam("exness") String exness) {
+		Optional<Exness> exnessQuery = exService.findByExnessId(exness);
+		if (exnessQuery.isEmpty()) {
+			throw new NotFoundException("This exness is not existed!");
+		}
+		String fileName = "transaction_exxness_id" + exness;
+		String url = uploadService.uploadImage(file, fileName);
+		
+		if (url != null) {
+			exnessQuery.get().setMessage(url);
+			exRepo.save(exnessQuery.get());
+		    
+			//String message = "Exness ID: " + exness + " đã cập nhật ảnh chuyển tiền!";
+			//tele.sendMessageToChat(chatId, message);
+			return ResponseEntity.ok("OK");
+		} else {
+			return ResponseEntity.ok("Error");
+		}
 	}
 
 	@GetMapping("/getNetwork/{email}")
@@ -361,6 +453,11 @@ public class DemoController {
 	public ResponseEntity<UpdateRefResponse> updateExness(@RequestBody UpdateExnessRequest request) {
 		return ResponseEntity.ok(service.updateExness(request.getEmail(), request.getExness(), request.getType()));
 	}
+	
+	@GetMapping("/get-exness/exness={exness}")
+	public ResponseEntity<Exness> getExnessByExnessid(@PathVariable("exness") String exness) {
+		return ResponseEntity.ok(exService.findByExnessId(exness).orElse(null));
+	}
 
 	@GetMapping("/get-exness/{email}")
 	public ResponseEntity<List<String>> getExnessByEmail(@PathVariable("email") String email) {
@@ -514,6 +611,11 @@ public class DemoController {
 	@GetMapping("/get-transaction/email={email}")
 	public ResponseEntity<List<Transaction>> getTransactionByEmail(@PathVariable("email") String email) {
 		return ResponseEntity.ok(transactionService.findTransactionByEmail(email));
+	}
+	
+	@GetMapping("/get-history/email={email}")
+	public ResponseEntity<List<History>> getHistoryByEmail(@PathVariable("email") String email) {
+		return ResponseEntity.ok(hisService.findHistoryByEmail(email));
 	}
 
 	private String getCellValueAsString(Cell cell) {

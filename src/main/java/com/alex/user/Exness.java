@@ -24,11 +24,16 @@ public class Exness {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
 	private String exness;
+	private String server;
+	private String password;
+	private String passview;
 	private double balance;
 	private double prevBalance;
 	private double totalProfit;
+	private boolean isActive;
+	private String message;
 
-	@ManyToOne(fetch = FetchType.LAZY)
+	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "user_id")
 	public User user;
 }

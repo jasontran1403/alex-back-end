@@ -72,13 +72,21 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
-	public Profit saveProfit(String exnessId, double amount, long time) {
+	public boolean saveProfit(String exnessId, double amount, long time) {
 		// TODO Auto-generated method stub
 		Profit profit = new Profit();
 		profit.setExnessId(exnessId);
 		profit.setAmount(amount);
 		profit.setTime(time);
-		return proRepo.save(profit);
+		
+		List<Profit> profits = proRepo.findByTimeAndExness(time, exnessId);
+		if (profits.size() != 0) {
+			return false;
+		} else {
+			proRepo.save(profit);
+			return true;
+		}
+		
 	}
 
 	@Override
@@ -92,14 +100,22 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
-	public Balance saveBalance(String exnessId, double amount, long time) {
+	public boolean saveBalance(String exnessId, double amount, long time) {
 		// TODO Auto-generated method stub
 		Balance balance = new Balance();
 		Exness exness = exRepo.findByExness(exnessId).get();
 		balance.setExnessId(exness.getExness());
 		balance.setAmount(amount);
 		balance.setTime(time);
-		return balanceRepo.save(balance);
+		
+		List<Balance> balances = balanceRepo.findByTimeAndExness(time, exnessId);
+		if (balances.size() != 0) {
+			return false;
+		} else {
+			balanceRepo.save(balance);
+			return true;
+		}
+		
 	}
 
 	@Override
@@ -194,6 +210,12 @@ public class UserServiceImpl implements UserService {
 		// TODO Auto-generated method stub
 		user.setCommission(user.getCommission() + amount);
 		userRepo.save(user);
+	}
+
+	@Override
+	public List<User> getUsersByBranchName(String branchName) {
+		// TODO Auto-generated method stub
+		return userRepo.getUsersByBranchName(branchName);
 	}
 
 }

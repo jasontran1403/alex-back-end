@@ -9,9 +9,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import com.alex.token.Token;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -45,6 +47,7 @@ public class User implements UserDetails {
 	private boolean mfaEnabled;
 	private String secret;
 	private int level;
+	private String branchName;
 	
 	@OneToMany(mappedBy = "user")
 	@JsonIgnore

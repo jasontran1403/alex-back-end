@@ -91,4 +91,16 @@ public class ExnessServiceImpl implements ExnessService {
 		return exness;
 	}
 
+	@Override
+	public double getBalanceByEmail(String email) {
+		// TODO Auto-generated method stub
+		User user = userRepo.getByEmail(email);
+		List<Exness> exnesses = exRepo.findByUser(user);
+		double balance = 0;
+		for (Exness item : exnesses) {
+			balance += item.getBalance();
+		}
+		return balance;
+	}
+
 }

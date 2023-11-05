@@ -33,6 +33,8 @@ public class SecurityConfiguration {
 	                        "/swagger-resources", "/swagger-resources/**", "/configuration/ui", "/configuration/security",
 	                        "/swagger-ui/**", "/webjars/**", "/swagger-ui.html")
 	        .permitAll()
+	        
+	        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
 	        .requestMatchers("/api/v1/secured/**")
 	        .authenticated()
@@ -44,9 +46,9 @@ public class SecurityConfiguration {
 	        .authenticationProvider(authenticationProvider)
 	        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 	        
-//	    http.exceptionHandling()
-//	    .authenticationEntryPoint(new CustomAuthenticationEntryPoint())
-//	    .accessDeniedHandler(new CustomAccessDeniedHandler());
+	    http.exceptionHandling()
+	    .authenticationEntryPoint(new CustomAuthenticationEntryPoint())
+	    .accessDeniedHandler(new CustomAccessDeniedHandler());
 
 	    http.cors();
 

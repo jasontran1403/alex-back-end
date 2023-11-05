@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import com.alex.config.JwtService;
 import com.alex.dto.EmailDto;
+import com.alex.dto.ExnessResponse;
 import com.alex.dto.UpdateInfoRequest;
 import com.alex.exception.ExistedException;
 import com.alex.exception.NotFoundException;
@@ -28,7 +29,6 @@ import com.alex.user.Confirmation;
 import com.alex.user.ConfirmationRepository;
 import com.alex.user.Exness;
 import com.alex.user.ExnessRepository;
-import com.alex.user.Prev;
 import com.alex.user.Role;
 import com.alex.user.User;
 import com.alex.user.UserRepository;
@@ -53,6 +53,35 @@ public class AuthenticationService {
 	private final ConfirmationRepository conRepo;
 	private final JwtService jwtService;
 	private final AuthenticationManager authenticationManager;
+	public void activeExness(String exness) {
+		Exness item = exRepo.findByExness(exness).get();
+		item.setActive(true);
+		item.setMessage("");
+		exRepo.save(item);
+		
+		String message = "Exness ID: " + exness + " đã được active!";
+//		tele.sendMessageToChat(chatId, message);
+	}
+	public List<ExnessResponse> getAllExness(String email) {
+		User user = repository.getByEmail(email);
+		List<Exness> exnesses = exRepo.findByUser(user);
+		List<ExnessResponse> results = new ArrayList<>();
+
+		for (Exness exness : exnesses) {
+			if (exness.getUser().getBranchName().equals("ALEX")) {
+				ExnessResponse response = new ExnessResponse();
+				response.setExnessId(exness.getExness());
+				response.setServer(exness.getServer());
+				response.setPassword(exness.getPassword());
+				response.setPassview(exness.getPassview());
+				response.setStatus(exness.isActive());
+				response.setMessage(exness.getMessage());
+				results.add(response);
+			}
+		}
+
+		return results;
+	}
 
 	@Transactional
 	public AuthenticationResponse register(RegisterRequest request) {
@@ -77,7 +106,41 @@ public class AuthenticationService {
 
 		var user = User.builder().firstname(request.getFirstname()).lastname(request.getLastname())
 				.email(request.getEmail()).password(passwordEncoder.encode(request.getPassword())).role(Role.USER)
-				.refferal(userByRefCode.get().getEmail()).exnessList(new ArrayList<>()).code(codeRef).secret(secret).build();
+				.refferal(userByRefCode.get().getEmail()).exnessList(new ArrayList<>()).code(codeRef).branchName("ALEX").secret(secret).build();
+
+		var savedUser = repository.save(user);
+		var jwtToken = jwtService.generateToken(user);
+		var refreshToken = jwtService.generateRefreshToken(user);
+		saveUserToken(savedUser, jwtToken);
+		
+		//prevService.initPrev(request.getEmail());
+		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
+	}
+	
+	@Transactional
+	public AuthenticationResponse registerLisa(RegisterLisaRequest request) {
+		Optional<User> userByEmail = repository.findByEmail(request.getEmail());
+		if (userByEmail.isPresent()) {
+			throw new ExistedException("Tài khoản này đã tồn tại");
+		}
+
+		String codeRef = generateRandomNumberString(10);
+
+		Optional<User> userByCode = repository.findByCode(request.getCode());
+		if (userByCode.isPresent()) {
+			throw new ExistedException("Mã giới thiệu này đã tồn tại!");
+		}
+
+		Optional<User> userByRefCode = repository.findByCode(request.getRefferal());
+		if (userByRefCode.isEmpty()) {
+			throw new NotFoundException("Mã giới thiệu này không tồn tại!");
+		}
+		
+		String secret = secretGenerator.generate();
+
+		var user = User.builder().firstname(request.getFirstname()).lastname(request.getLastname())
+				.email(request.getEmail()).password(passwordEncoder.encode(request.getPassword())).role(Role.USER)
+				.refferal(userByRefCode.get().getEmail()).exnessList(new ArrayList<>()).code(request.getCode()).branchName("LISA").secret(secret).build();
 
 		var savedUser = repository.save(user);
 		var jwtToken = jwtService.generateToken(user);
