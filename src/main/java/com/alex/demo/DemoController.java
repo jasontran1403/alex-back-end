@@ -34,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.alex.auth.AuthenticationService;
 import com.alex.auth.RefferalRequest;
+import com.alex.auth.UpdateExnessLisaRequest;
 import com.alex.auth.UpdateExnessRequest;
 import com.alex.auth.UpdateRefRequest;
 import com.alex.auth.UpdateRefResponse;
@@ -98,24 +99,30 @@ public class DemoController {
 	private final TransactionService transactionService;
 	private final CommissionService commissService;
 	private final ImageUploadService uploadService;
-	
+
 	@GetMapping("/active-exness/{exness}")
 	public ResponseEntity<String> activeExness(@PathVariable("exness") String exness) {
 		service.activeExness(exness);
 		return ResponseEntity.ok("OK");
 	}
-	
+
 	@GetMapping
 	public ResponseEntity<String> sayHello() {
 		return ResponseEntity.ok("Hello from secured endpoint");
 	}
-	
+
 	@GetMapping("/get-all-exness/email={email}")
-    public ResponseEntity<List<ExnessResponse>> get(@PathVariable("email") String email) {
-    	List<ExnessResponse> listExness = service.getAllExness(email);
-        return ResponseEntity.ok(listExness);
-    }
-	
+	public ResponseEntity<List<ExnessResponse>> get(@PathVariable("email") String email) {
+		List<ExnessResponse> listExness = service.getAllExness(email);
+		return ResponseEntity.ok(listExness);
+	}
+
+	@GetMapping("/get-all-exnessLisa/email={email}")
+	public ResponseEntity<List<ExnessResponse>> getLisa(@PathVariable("email") String email) {
+		List<ExnessResponse> listExness = service.getAllExnessLisa(email);
+		return ResponseEntity.ok(listExness);
+	}
+
 	@GetMapping("/getHistoryLisa/{email}")
 	public ResponseEntity<List<HistoryResponse>> getHistoryByEmailLisa(@PathVariable("email") String email) {
 		List<History> listHistories = hisService.findHistoryByReceiver(email);
@@ -133,7 +140,7 @@ public class DemoController {
 
 		return ResponseEntity.ok(listHistoryResponse);
 	}
-	
+
 	@GetMapping("/get-total-commission/{email}")
 	public ResponseEntity<Double> getTotalCommission(@PathVariable("email") String email) {
 		double totalCommission = 0.0;
@@ -144,7 +151,6 @@ public class DemoController {
 		}
 		return ResponseEntity.ok(totalCommission);
 	}
-	
 
 	@GetMapping("/get-prev-data/{email}")
 	public ResponseEntity<PreviousMonthResponse> getPreviousMonthData(@PathVariable("email") String email) {
@@ -157,7 +163,7 @@ public class DemoController {
 
 		return ResponseEntity.ok(result);
 	}
-	
+
 //	@PostMapping("/withdraw-ib")
 //	public ResponseEntity<String> withdrawIB(@RequestBody WithdrawRequest request) {
 //		String message = "[Withdraw] " + request.getEmail() + " rút " + request.getAmount();
@@ -261,23 +267,24 @@ public class DemoController {
 
 		return ResponseEntity.ok(result);
 	}
-	
+
 	@PostMapping("/upload-transaction")
-	public ResponseEntity<String> uploadTransaction(@RequestParam("file") MultipartFile file, @RequestParam("exness") String exness) {
+	public ResponseEntity<String> uploadTransaction(@RequestParam("file") MultipartFile file,
+			@RequestParam("exness") String exness) {
 		Optional<Exness> exnessQuery = exService.findByExnessId(exness);
 		if (exnessQuery.isEmpty()) {
 			throw new NotFoundException("This exness is not existed!");
 		}
 		String fileName = "transaction_exxness_id" + exness;
 		String url = uploadService.uploadImage(file, fileName);
-		
+
 		if (url != null) {
 			exnessQuery.get().setMessage(url);
 			exRepo.save(exnessQuery.get());
-		    
-			//String message = "Exness ID: " + exness + " đã cập nhật ảnh chuyển tiền!";
-			//tele.sendMessageToChat(chatId, message);
-			return ResponseEntity.ok("OK");
+
+			// String message = "Exness ID: " + exness + " đã cập nhật ảnh chuyển tiền!";
+			// tele.sendMessageToChat(chatId, message);
+			return ResponseEntity.ok(url);
 		} else {
 			return ResponseEntity.ok("Error");
 		}
@@ -382,13 +389,13 @@ public class DemoController {
 			String exnessId = value.substring(secondDashIndex + 1, value.length());
 			double amount = Double.parseDouble(value.substring(firstDashIndex + 1, secondDashIndex));
 			double amountToInvest = 0, amountToDev = 0;
-			int userLevel = exService.findUserByExness(exnessId).getLevel();
-			if (userLevel == 1) {
-				amountToInvest = amount * 0.5;
-				amountToDev = amount - amountToInvest;
-			} else if (userLevel == 2) {
-
-			}
+//			int userLevel = exService.findUserByExness(exnessId).getLevel();
+//			if (userLevel == 1) {
+//				amountToInvest = amount * 0.5;
+//				amountToDev = amount - amountToInvest;
+//			} else if (userLevel == 2) {
+//
+//			}
 
 		});
 
@@ -421,27 +428,19 @@ public class DemoController {
 			}
 
 			for (User user : users) {
-				String uploadDirectory = "src/main/resources/assets/avatar";
-				Path uploadPath = Path.of(uploadDirectory);
-				String defaultFileName = "avatar_user_default.png";
-				// Xây dựng tên tệp dựa trên id
-				String fileName = "avatar_user_id_" + user.getId() + ".png";
-				Path filePath = uploadPath.resolve(fileName);
-				byte[] imageBytes = null;
-				if (!Files.exists(filePath)) {
-					filePath = uploadPath.resolve(defaultFileName);
+				String image = "";
+				if (user.getImage() == "") {
+					image = "/assets/images/avatars/avatar_default.png";
+				} else {
+					image = user.getImage();
 				}
-
-				try {
-					imageBytes = Files.readAllBytes(filePath);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-
-				network.add(new NetworkDto(user.getEmail(), email, imageBytes, currentLevel));
+				double profit = exService.getBalanceByEmail(user.getEmail());
+				double commission = user.getCommission();
+				network.add(new NetworkDto(user.getEmail(), user.getRefferal(), image, commission, profit, currentLevel));
 				getUserNetwork(user.getEmail(), desiredLevel, currentLevel + 1, network);
 			}
 		}
+
 	}
 
 	@PostMapping("/update-ref")
@@ -453,7 +452,13 @@ public class DemoController {
 	public ResponseEntity<UpdateRefResponse> updateExness(@RequestBody UpdateExnessRequest request) {
 		return ResponseEntity.ok(service.updateExness(request.getEmail(), request.getExness(), request.getType()));
 	}
-	
+
+	@PostMapping("/update-exnessLisa")
+	public ResponseEntity<UpdateRefResponse> updateExness(@RequestBody UpdateExnessLisaRequest request) {
+		return ResponseEntity.ok(service.updateExnessLisa(request.getEmail(), request.getExness(), request.getServer(),
+				request.getPassword(), request.getPassview(), request.getType()));
+	}
+
 	@GetMapping("/get-exness/exness={exness}")
 	public ResponseEntity<Exness> getExnessByExnessid(@PathVariable("exness") String exness) {
 		return ResponseEntity.ok(exService.findByExnessId(exness).orElse(null));
@@ -470,64 +475,75 @@ public class DemoController {
 	}
 
 	@PostMapping("/upload-avatar")
-	public ResponseEntity<byte[]> uploadAvatar(@RequestParam("file") MultipartFile file,
+	public ResponseEntity<String> uploadAvatar(@RequestParam("file") MultipartFile file,
 			@RequestParam("email") String email) {
 		User user = userRepo.findByEmail(email).get();
 
-		try {
-			// Kiểm tra kiểu MIME của tệp
-			String contentType = file.getContentType();
-			if (!contentType.startsWith("image")) {
-				throw new NotFoundException("No image found");
-			}
+		String fileName = "avatar/user_id_" + user.getId();
+		String url = uploadService.uploadImage(file, fileName);
+		user.setImage(url);
+		userRepo.save(user);
+		return ResponseEntity.ok(url);
 
-			// Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
-			String uploadDirectory = "src/main/resources/assets/avatar";
-			Path uploadPath = Path.of(uploadDirectory);
-
-			// Tạo thư mục nếu nó chưa tồn tại
-			if (!Files.exists(uploadPath)) {
-				Files.createDirectories(uploadPath);
-			}
-
-			// Lấy tên tệp từ MultipartFile
-			String fileName = "avatar_user_id_" + user.getId() + ".png";
-			Path filePath = uploadPath.resolve(fileName);
-
-			// Lưu tệp vào thư mục
-			Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-			// Trả về thông báo thành công
-			// Đọc nội dung tệp ảnh
-			byte[] imageBytes = Files.readAllBytes(filePath);
-			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
-																		// định dạng ảnh của bạn)
-					.body(imageBytes);
-		} catch (IOException e) {
-			return ResponseEntity.notFound().build();
-		}
+//		User user = userRepo.findByEmail(email).get();
+//
+//		try {
+//			// Kiểm tra kiểu MIME của tệp
+//			String contentType = file.getContentType();
+//			if (!contentType.startsWith("image")) {
+//				throw new NotFoundException("No image found");
+//			}
+//
+//			// Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
+//			String uploadDirectory = "src/main/resources/assets/avatar";
+//			Path uploadPath = Path.of(uploadDirectory);
+//
+//			// Tạo thư mục nếu nó chưa tồn tại
+//			if (!Files.exists(uploadPath)) {
+//				Files.createDirectories(uploadPath);
+//			}
+//
+//			// Lấy tên tệp từ MultipartFile
+//			String fileName = "avatar_user_id_" + user.getId() + ".png";
+//			Path filePath = uploadPath.resolve(fileName);
+//
+//			// Lưu tệp vào thư mục
+//			Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+//
+//			// Trả về thông báo thành công
+//			// Đọc nội dung tệp ảnh
+//			byte[] imageBytes = Files.readAllBytes(filePath);
+//			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
+//																		// định dạng ảnh của bạn)
+//					.body(imageBytes);
+//		} catch (IOException e) {
+//			return ResponseEntity.notFound().build();
+//		}
 	}
 
 	@GetMapping("/avatar/{email}")
-	public ResponseEntity<byte[]> getAvatar(@PathVariable("email") String email) {
-		// Lấy đường dẫn đến thư mục lưu trữ avatar (src/main/resources/assets/avatar)
-		String uploadDirectory = "src/main/resources/assets/avatar";
-		Path uploadPath = Path.of(uploadDirectory);
-
+	public ResponseEntity<String> getAvatar(@PathVariable("email") String email) {
 		User user = userRepo.findByEmail(email).get();
-		// Xây dựng tên tệp dựa trên id
-		String fileName = "avatar_user_id_" + user.getId() + ".png";
-		Path filePath = uploadPath.resolve(fileName);
-
-		try {
-			// Đọc nội dung tệp ảnh
-			byte[] imageBytes = Files.readAllBytes(filePath);
-			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
-																		// định dạng ảnh của bạn)
-					.body(imageBytes);
-		} catch (IOException e) {
-			return ResponseEntity.notFound().build();
-		}
+		return ResponseEntity.ok(user.getImage());
+		// // Lấy đường dẫn đến thư mục lưu trữ avatar
+		// (src/main/resources/assets/avatar)
+//		String uploadDirectory = "src/main/resources/assets/avatar";
+//		Path uploadPath = Path.of(uploadDirectory);
+//
+//		User user = userRepo.findByEmail(email).get();
+//		// Xây dựng tên tệp dựa trên id
+//		String fileName = "avatar_user_id_" + user.getId() + ".png";
+//		Path filePath = uploadPath.resolve(fileName);
+//
+//		try {
+//			// Đọc nội dung tệp ảnh
+//			byte[] imageBytes = Files.readAllBytes(filePath);
+//			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG) // Đặt kiểu MIME cho ảnh (png hoặc phù hợp với
+//																		// định dạng ảnh của bạn)
+//					.body(imageBytes);
+//		} catch (IOException e) {
+//			return ResponseEntity.notFound().build();
+//		}
 	}
 
 	@PostMapping("/upload-banner")
@@ -612,7 +628,7 @@ public class DemoController {
 	public ResponseEntity<List<Transaction>> getTransactionByEmail(@PathVariable("email") String email) {
 		return ResponseEntity.ok(transactionService.findTransactionByEmail(email));
 	}
-	
+
 	@GetMapping("/get-history/email={email}")
 	public ResponseEntity<List<History>> getHistoryByEmail(@PathVariable("email") String email) {
 		return ResponseEntity.ok(hisService.findHistoryByEmail(email));

@@ -13,4 +13,5 @@ public interface ExnessService {
 	PreviousMonthResponse findByExness(String exness);
 	void updateTotalProfit(String exnessId, double amount);
 	double getBalanceByEmail(String email);
+	double getProfitByEmail(String email);
 }

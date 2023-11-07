@@ -7,8 +7,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface UserRepository extends JpaRepository<User, Integer> {
-
+	
 	Optional<User> findByEmail(String email);
+	
+	@Query(value = "select * from _user where email = ?1 and branch_name='ALEX'", nativeQuery = true)
+	Optional<User> findByEmailAlex(String email);
+	
+	@Query(value = "select * from _user where email = ?1 and branch_name='LISA'", nativeQuery = true)
+	Optional<User> findByEmailLisa(String email);
 
 	Optional<User> findByCode(String code);
 

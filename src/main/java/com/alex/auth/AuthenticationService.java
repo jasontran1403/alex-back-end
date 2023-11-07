@@ -82,6 +82,27 @@ public class AuthenticationService {
 
 		return results;
 	}
+	
+	public List<ExnessResponse> getAllExnessLisa(String email) {
+		User user = repository.getByEmail(email);
+		List<Exness> exnesses = exRepo.findByUser(user);
+		List<ExnessResponse> results = new ArrayList<>();
+
+		for (Exness exness : exnesses) {
+			if (exness.getUser().getBranchName().equals("LISA")) {
+				ExnessResponse response = new ExnessResponse();
+				response.setExnessId(exness.getExness());
+				response.setServer(exness.getServer());
+				response.setPassword(exness.getPassword());
+				response.setPassview(exness.getPassview());
+				response.setStatus(exness.isActive());
+				response.setMessage(exness.getMessage());
+				results.add(response);
+			}
+		}
+
+		return results;
+	}
 
 	@Transactional
 	public AuthenticationResponse register(RegisterRequest request) {
@@ -177,7 +198,18 @@ public class AuthenticationService {
 	public AuthenticationResponse authenticate(AuthenticationRequest request) {
 		authenticationManager
 				.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-		var user = repository.findByEmail(request.getEmail()).orElseThrow();
+		var user = repository.findByEmailAlex(request.getEmail()).orElseThrow();
+		var jwtToken = jwtService.generateToken(user);
+		var refreshToken = jwtService.generateRefreshToken(user);
+		revokeAllUserTokens(user);
+		saveUserToken(user, jwtToken);
+		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
+	}
+	
+	public AuthenticationResponse authenticateLisa(AuthenticationRequest request) {
+		authenticationManager
+				.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+		var user = repository.findByEmailLisa(request.getEmail()).orElseThrow();
 		var jwtToken = jwtService.generateToken(user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 		revokeAllUserTokens(user);
@@ -230,6 +262,39 @@ public class AuthenticationService {
 			Exness exnessToUpdate = new Exness();
 			exnessToUpdate.setUser(userToUpdate);
 			exnessToUpdate.setExness(exness);
+			exRepo.save(exnessToUpdate);
+			return UpdateRefResponse.builder().status(200).message("Exness ID cập nhật thành công cho user: " + email)
+					.build();
+		} else if (type == 2) {
+			Optional<Exness> exnessToDelete = exRepo.findByExness(exness);
+			if (exnessToDelete.isEmpty()) {
+				throw new NotFoundException("Exness ID này không tồn tại.");
+			}
+			exRepo.delete(exnessToDelete.get());
+			return UpdateRefResponse.builder().status(200).message("Exness ID xoá thành công  user: " + email).build();
+		}
+
+		return UpdateRefResponse.builder().status(405).message("Lỗi").build();
+	}
+	
+	@Transactional
+	public UpdateRefResponse updateExnessLisa(String email, String exness, String server, String password, String passview, int type) {
+		Optional<User> user = repository.findByEmail(email);
+		if (user.isEmpty()) {
+			throw new NotFoundException("Tài khoản không tồn tại.");
+		}
+		if (type == 1) {
+			Optional<Exness> exnessToCheck = exRepo.findByExness(exness);
+			if (exnessToCheck.isPresent()) {
+				throw new ExistedException("Exness ID này đã tồn tại.");
+			}
+			User userToUpdate = user.get();
+			Exness exnessToUpdate = new Exness();
+			exnessToUpdate.setUser(userToUpdate);
+			exnessToUpdate.setExness(exness);
+			exnessToUpdate.setServer(server);
+			exnessToUpdate.setPassword(password);
+			exnessToUpdate.setPassview(passview);
 			exRepo.save(exnessToUpdate);
 			return UpdateRefResponse.builder().status(200).message("Exness ID cập nhật thành công cho user: " + email)
 					.build();

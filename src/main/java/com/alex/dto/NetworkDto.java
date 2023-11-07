@@ -9,8 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NetworkDto implements Comparable<NetworkDto> {
 	private String email;
-    private String referrer;
-    private byte[] image;
+    private String refferal;
+    private String image;
+    private double commission;
+    private double profit;
     private int level;
     
     @Override

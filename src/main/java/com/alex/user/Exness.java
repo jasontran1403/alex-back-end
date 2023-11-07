@@ -1,5 +1,6 @@
 package com.alex.user;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -29,8 +30,11 @@ public class Exness {
 	private String passview;
 	private double balance;
 	private double prevBalance;
+	private int level;
+	private boolean isSet;
 	private double totalProfit;
 	private boolean isActive;
+	@Column(columnDefinition="TEXT")
 	private String message;
 
 	@ManyToOne(fetch = FetchType.EAGER)

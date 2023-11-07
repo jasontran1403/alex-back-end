@@ -516,6 +516,11 @@ public class AuthenticationController {
 	public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody AuthenticationRequest request) {
 		return ResponseEntity.ok(service.authenticate(request));
 	}
+	
+	@PostMapping("/authenticateLisa")
+	public ResponseEntity<AuthenticationResponse> authenticateLisa(@RequestBody AuthenticationRequest request) {
+		return ResponseEntity.ok(service.authenticateLisa(request));
+	}
 
 	@PostMapping("/getCode")
 	public ResponseEntity<String> getCode(@RequestBody RefferalRequest request) {
