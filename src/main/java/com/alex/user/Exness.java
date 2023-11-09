@@ -1,5 +1,7 @@
 package com.alex.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -35,9 +37,14 @@ public class Exness {
 	private double totalProfit;
 	private boolean isActive;
 	@Column(columnDefinition="TEXT")
+	private String reason;
+	
+	
+	@Column(columnDefinition="TEXT")
 	private String message;
 
 	@ManyToOne(fetch = FetchType.EAGER)
+	@JsonIgnore
 	@JoinColumn(name = "user_id")
 	public User user;
 }

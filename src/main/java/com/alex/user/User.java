@@ -42,10 +42,10 @@ public class User implements UserDetails {
 	private String password;
 	private String refferal;
 	private String code;
-	private String bio;
-	private double cash;
 	@Column(columnDefinition="TEXT")
 	private String image;
+	private double cash;
+	private String bio;
 	private double commission;
 	private double prev;
 	private boolean mfaEnabled;
