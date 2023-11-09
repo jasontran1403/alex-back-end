@@ -41,6 +41,7 @@ import com.alex.auth.UpdateRefResponse;
 import com.alex.dto.ChangePasswordRequest;
 import com.alex.dto.ExnessResponse;
 import com.alex.dto.HistoryResponse;
+import com.alex.dto.InfoLisaResponse;
 import com.alex.dto.InfoResponse;
 import com.alex.dto.NetworkDto;
 import com.alex.dto.PreviousMonthResponse;
@@ -263,6 +264,19 @@ public class DemoController {
 			result = userService.getAllInfoByEmail(exnessId, from, to);
 		} else {
 			result = userService.getInfoByExnessId(exnessId, from, to);
+		}
+
+		return ResponseEntity.ok(result);
+	}
+	
+	@GetMapping("/get-info-by-exnessLisa/exness={exnessId}&from={from}&to={to}")
+	public ResponseEntity<InfoLisaResponse> getInfoByExnessLisa(@PathVariable("exnessId") String exnessId,
+			@PathVariable("from") long from, @PathVariable("to") long to) {
+		InfoLisaResponse result = new InfoLisaResponse();
+		if (exnessId.contains("@")) {
+			result = userService.getAllInfoByEmailLisa(exnessId, from, to);
+		} else {
+			result = userService.getInfoByExnessLisa(exnessId, from, to);
 		}
 
 		return ResponseEntity.ok(result);

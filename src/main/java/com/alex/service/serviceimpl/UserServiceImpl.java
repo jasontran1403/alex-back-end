@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.alex.dto.InfoLisaResponse;
 import com.alex.dto.InfoResponse;
 import com.alex.exception.NotFoundException;
 import com.alex.service.UserService;
@@ -16,6 +17,8 @@ import com.alex.user.Commission;
 import com.alex.user.CommissionRepository;
 import com.alex.user.Exness;
 import com.alex.user.ExnessRepository;
+import com.alex.user.History;
+import com.alex.user.HistoryRepository;
 import com.alex.user.Profit;
 import com.alex.user.ProfitRepository;
 import com.alex.user.Transaction;
@@ -42,6 +45,9 @@ public class UserServiceImpl implements UserService {
 
 	@Autowired
 	TransactionRepository transRepo;
+	
+	@Autowired
+	HistoryRepository hisRepo;
 
 	@Override
 	public InfoResponse getInfoByExnessId(String exnessId, long from, long to) {
@@ -216,6 +222,108 @@ public class UserServiceImpl implements UserService {
 	public List<User> getUsersByBranchName(String branchName) {
 		// TODO Auto-generated method stub
 		return userRepo.getUsersByBranchName(branchName);
+	}
+
+
+	@Override
+	public InfoLisaResponse getAllInfoByEmailLisa(String email, long from, long to) {
+		// TODO Auto-generated method stub
+		Optional<User> user = userRepo.findByEmail(email);
+		if (user.isEmpty()) {
+			throw new NotFoundException("This user with email " + email + " is not existed!");
+		}
+
+		List<Profit> profits = new ArrayList<>();
+		List<History> histories = new ArrayList<>();
+		List<Balance> balances = new ArrayList<>();
+		double balance = 0.0;
+
+		if (from > 0 && to > 0) {
+			for (Exness exness : user.get().getExnessList()) {
+				balance += exness.getBalance();
+				List<Profit> profitsFromCriteria = proRepo.getCommissionByExnessIdAndTime(exness.getExness(), from, to);
+				if (profitsFromCriteria.size() > 0) {
+					for (Profit profit : profitsFromCriteria) {
+						profits.add(profit);
+					}
+				}
+
+				
+				
+				List<Balance> balanceFromCriteria = balanceRepo.findByExnessByTime(exness.getExness(), from, to);
+				if (balanceFromCriteria.size() > 0) {
+					for (Balance balanceItem : balanceFromCriteria) {
+						balances.add(balanceItem);
+					}
+				}
+				
+			}
+			
+			List<History> historiesFromCriteria = hisRepo
+					.getHistoryByEmailAndTime(email, from, to);
+			if (historiesFromCriteria.size() > 0) {
+				for (History history : historiesFromCriteria) {
+					histories.add(history);
+				}
+			}
+		}
+		
+		InfoLisaResponse result = new InfoLisaResponse();
+		result.setProfit(balance);
+		result.setCommission(user.get().getCommission());
+		result.setProfits(profits);
+		result.setHistories(histories);
+		result.setBalances(balances);
+		
+		
+		// TODO Auto-generated method stub
+		return result;
+	}
+
+	@Override
+	public InfoLisaResponse getInfoByExnessLisa(String exnessId, long from, long to) {
+		// TODO Auto-generated method stub
+		Optional<Exness> exness = exRepo.findByExness(exnessId);
+		if (exness.isEmpty()) {
+			throw new NotFoundException("This ExnessID " + exnessId + " is not existed!");
+		}
+
+		List<Profit> profits = new ArrayList<>();
+		List<History> histories = new ArrayList<>();
+		List<Balance> balances = new ArrayList<>();
+		
+		List<History> historiesFromCriteria = hisRepo
+				.getHistoryByEmailAndTime(exness.get().getUser().getEmail(), from, to);
+		if (historiesFromCriteria.size() > 0) {
+			for (History history : historiesFromCriteria) {
+				histories.add(history);
+			}
+		}
+
+		List<Profit> profitsFromCriteria = proRepo.getCommissionByExnessIdAndTime(exness.get().getExness(), from, to);
+		if (profitsFromCriteria.size() > 0) {
+			for (Profit profit : profitsFromCriteria) {
+				profits.add(profit);
+			}
+		}
+
+		
+		
+		List<Balance> balanceFromCriteria = balanceRepo.findByExnessByTime(exness.get().getExness(), from, to);
+		if (balanceFromCriteria.size() > 0) {
+			for (Balance balanceItem : balanceFromCriteria) {
+				balances.add(balanceItem);
+			}
+		}
+		
+		InfoLisaResponse result = new InfoLisaResponse();
+		result.setProfit(exness.get().getBalance());
+		result.setCommission(exness.get().getUser().getCommission());
+		result.setProfits(profits);
+		result.setHistories(histories);
+		result.setBalances(balances);
+		
+		return result;
 	}
 
 }

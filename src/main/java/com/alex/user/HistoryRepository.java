@@ -14,4 +14,7 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
 	@Query(value="select * from history where receiver = ?1 and time >= ?2 and time <= ?3 order by time asc", nativeQuery=true)
 	List<History> findByReceiveAndTimeRange(String email, long from, long to);
 	
+	@Query(value="select * from history where receiver = ?1 order by time asc", nativeQuery=true)
+	List<History> getHistoryByEmailAndTime(String email, long from, long to);
+	
 }

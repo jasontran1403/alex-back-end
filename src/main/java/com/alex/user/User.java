@@ -43,6 +43,7 @@ public class User implements UserDetails {
 	private String refferal;
 	private String code;
 	private String bio;
+	private double cash;
 	@Column(columnDefinition="TEXT")
 	private String image;
 	private double commission;

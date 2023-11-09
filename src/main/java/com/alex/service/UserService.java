@@ -2,6 +2,7 @@ package com.alex.service;
 
 import java.util.List;
 
+import com.alex.dto.InfoLisaResponse;
 import com.alex.dto.InfoResponse;
 import com.alex.user.Commission;
 import com.alex.user.Exness;
@@ -11,6 +12,8 @@ import com.alex.user.User;
 public interface UserService {
 	InfoResponse getInfoByExnessId(String exnessId, long from, long to);
 	InfoResponse getAllInfoByEmail(String email, long from, long to);
+	InfoLisaResponse getAllInfoByEmailLisa(String email, long from, long to);
+	InfoLisaResponse getInfoByExnessLisa(String exnessId, long from, long to);
 	boolean saveProfit(String exnessId, double amount, long time);
 	Commission saveCommission(String exnessId, double amount, long time);
 	boolean saveBalance(String exnessId, double amount, long time);
