@@ -26,4 +26,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
 	@Query(value="select * from _user where branch_name = ?1", nativeQuery = true)
 	List<User> getUsersByBranchName(String branchName);
+	
+	@Query(value="select COALESCE(SUM(commission), 0) from _user where branch_name = ?1", nativeQuery = true)
+	double getTotalCommissionByBranchName(String branchName);
 }

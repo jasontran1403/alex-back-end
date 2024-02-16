@@ -38,15 +38,19 @@ import com.alex.auth.UpdateExnessLisaRequest;
 import com.alex.auth.UpdateExnessRequest;
 import com.alex.auth.UpdateRefRequest;
 import com.alex.auth.UpdateRefResponse;
+import com.alex.dto.AdminPixiuResponse;
 import com.alex.dto.ChangePasswordRequest;
+import com.alex.dto.ExnessInfoDto;
 import com.alex.dto.ExnessResponse;
 import com.alex.dto.HistoryResponse;
 import com.alex.dto.InfoLisaResponse;
 import com.alex.dto.InfoResponse;
+import com.alex.dto.ManagerPixiuResponse;
 import com.alex.dto.NetworkDto;
 import com.alex.dto.PreviousMonthResponse;
 import com.alex.dto.TwoFARequest;
 import com.alex.dto.UpdateInfoRequest;
+import com.alex.dto.UserResponse;
 import com.alex.exception.NotFoundException;
 import com.alex.service.CommissionService;
 import com.alex.service.ExnessService;
@@ -56,9 +60,12 @@ import com.alex.service.MessageService;
 import com.alex.service.PrevService;
 import com.alex.service.TransactionService;
 import com.alex.service.UserService;
+import com.alex.user.AdminPixiu;
+import com.alex.user.Commission;
 import com.alex.user.Exness;
 import com.alex.user.ExnessRepository;
 import com.alex.user.History;
+import com.alex.user.ManagerPixiu;
 import com.alex.user.Message;
 import com.alex.user.Transaction;
 import com.alex.user.User;
@@ -101,6 +108,7 @@ public class DemoController {
 	private final CommissionService commissService;
 	private final ImageUploadService uploadService;
 
+	// cap nhat exness
 	@GetMapping("/active-exness/{exness}")
 	public ResponseEntity<String> activeExness(@PathVariable("exness") String exness) {
 		service.activeExness(exness);
@@ -142,11 +150,61 @@ public class DemoController {
 		return ResponseEntity.ok(listHistoryResponse);
 	}
 
+	@GetMapping("/get-all-commission-pixiu")
+	public ResponseEntity<List<Commission>> getAllCommission() {
+		List<Commission> listCommission = commissService.getAllCommissionByBranchName("PixiuGroup");
+
+		return ResponseEntity.ok(listCommission);
+	}
+	
+	@GetMapping("/get-all-commission-pixiu-super")
+	public ResponseEntity<List<Commission>> getAllCommissionSuper() {
+		List<Commission> listCommission = commissService.getAllCommissionByBranchName("PixiuGroup");
+
+		return ResponseEntity.ok(listCommission);
+	}
+	
+	@GetMapping("/get-all-commission-pixiu-admin/{email}")
+	public ResponseEntity<List<AdminPixiu>> getAllCommissionAdmin(@PathVariable("email") String email) {
+		List<AdminPixiu> listCommission = commissService.getAllCommissionByBranchNameAdmin("PixiuGroup", email);
+
+		return ResponseEntity.ok(listCommission);
+	}
+	
+	@GetMapping("/get-all-commission-pixiu-manager")
+	public ResponseEntity<List<ManagerPixiu>> getAllCommissionManager() {
+		List<ManagerPixiu> listCommission = commissService.getAllCommissionByBranchNameManager("PixiuGroup");
+
+		return ResponseEntity.ok(listCommission);
+	}
+
+	@GetMapping("/get-all-account")
+	public ResponseEntity<List<UserResponse>> getListAccount() {
+		List<UserResponse> result = new ArrayList<>();
+		List<User> listUsers = userRepo.getUsersByBranchName("PixiuGroup");
+
+		for (User user : listUsers) {
+			if (user.getRole().name() != "ADMIN") {
+				UserResponse userItem = new UserResponse();
+				userItem.setId(user.getId());
+				userItem.setEmail(user.getEmail());
+				userItem.setName(user.getFirstname() + " " + user.getLastname());
+				userItem.setRole(user.getRole().name());
+				result.add(userItem);
+			}
+
+		}
+
+		return ResponseEntity.ok(result);
+	}
+
 	@GetMapping("/get-total-commission/{email}")
 	public ResponseEntity<Double> getTotalCommission(@PathVariable("email") String email) {
 		double totalCommission = 0.0;
 		if (email.equalsIgnoreCase("trantuongthuy@gmail.com")) {
-			totalCommission = commissService.getTotalCommission();
+			totalCommission = commissService.getTotalCommission("Alex");
+		} else if (email.equalsIgnoreCase("pixiu_group@gmail.com")) {
+			totalCommission = commissService.getTotalCommission("PixiuGroup");
 		} else {
 			throw new NotFoundException("You cann't invoke to this information!");
 		}
@@ -268,7 +326,53 @@ public class DemoController {
 
 		return ResponseEntity.ok(result);
 	}
+
+	@GetMapping("/get-info-by-exness-time-range/exness={exnessId}&from={from}&to={to}")
+	public ResponseEntity<InfoResponse> getInfoTimeRangeByExness(@PathVariable("exnessId") String exnessId,
+			@PathVariable("from") long from, @PathVariable("to") long to) {
+		InfoResponse result = new InfoResponse();
+		if (exnessId.contains("@")) {
+			result = userService.getAllInfoByEmail(exnessId, from, to);
+		} else {
+			result = userService.getInfoFromTimeRangeByExnessId(exnessId, from, to);
+		}
+
+		return ResponseEntity.ok(result);
+	}
 	
+	@GetMapping("/get-info-by-exness-time-range-super-admin/exness={exnessId}&from={from}&to={to}")
+	public ResponseEntity<InfoResponse> getInfoTimeRangeByExnessBySuperAdmin(@PathVariable("exnessId") String exnessId,
+			@PathVariable("from") long from, @PathVariable("to") long to) {
+		InfoResponse result = new InfoResponse();
+		if (!exnessId.contains("@")) {
+			result = userService.getInfoFromTimeRangeByExnessId(exnessId, from, to);
+		}
+
+		return ResponseEntity.ok(result);
+	}
+
+	@GetMapping("/get-info-by-exness-time-range-admin/exness={exnessId}&from={from}&to={to}")
+	public ResponseEntity<AdminPixiuResponse> getInfoTimeRangeByExnessByAdmin(@PathVariable("exnessId") String exnessId,
+			@PathVariable("from") long from, @PathVariable("to") long to) {
+		AdminPixiuResponse result = new AdminPixiuResponse();
+		if (!exnessId.contains("@")) {
+			result = userService.getInfoFromTimeRangeByExnessIdByAdmin(exnessId, from, to);
+		}
+
+		return ResponseEntity.ok(result);
+	}
+
+	@GetMapping("/get-info-by-exness-time-range-manager/exness={exnessId}&from={from}&to={to}")
+	public ResponseEntity<ManagerPixiuResponse> getInfoTimeRangeByExnessByManager(@PathVariable("exnessId") String exnessId,
+			@PathVariable("from") long from, @PathVariable("to") long to) {
+		ManagerPixiuResponse result = new ManagerPixiuResponse();
+		if (!exnessId.contains("@")) {
+			result = userService.getInfoFromTimeRangeByExnessIdByManager(exnessId, from, to);
+		}
+
+		return ResponseEntity.ok(result);
+	}
+
 	@GetMapping("/get-info-by-exnessLisa/exness={exnessId}&from={from}&to={to}")
 	public ResponseEntity<InfoLisaResponse> getInfoByExnessLisa(@PathVariable("exnessId") String exnessId,
 			@PathVariable("from") long from, @PathVariable("to") long to) {
@@ -448,9 +552,10 @@ public class DemoController {
 				} else {
 					image = user.getImage();
 				}
-				double profit = exService.getBalanceByEmail(user.getEmail());
+				double profit = exService.getProfitByEmail(user.getEmail());
 				double commission = user.getCommission();
-				network.add(new NetworkDto(user.getEmail(), user.getRefferal(), image, commission, profit, currentLevel));
+				network.add(
+						new NetworkDto(user.getEmail(), user.getRefferal(), image, commission, profit, currentLevel));
 				getUserNetwork(user.getEmail(), desiredLevel, currentLevel + 1, network);
 			}
 		}
@@ -469,8 +574,7 @@ public class DemoController {
 
 	@PostMapping("/update-exnessLisa")
 	public ResponseEntity<UpdateRefResponse> updateExness(@RequestBody UpdateExnessLisaRequest request) {
-		return ResponseEntity.ok(service.updateExnessLisa(request.getEmail(), request.getExness(), request.getServer(),
-				request.getPassword(), request.getPassview(), request.getType()));
+		return ResponseEntity.ok(service.updateExnessLisa(request));
 	}
 
 	@GetMapping("/get-exness/exness={exness}")
@@ -481,6 +585,39 @@ public class DemoController {
 	@GetMapping("/get-exness/{email}")
 	public ResponseEntity<List<String>> getExnessByEmail(@PathVariable("email") String email) {
 		return ResponseEntity.ok(service.getExnessByEmail(email));
+	}
+
+	@GetMapping("/get-exness-pixiu/{email}/{currentEmail}")
+	public ResponseEntity<List<ExnessInfoDto>> getExnessByEmailPixiu(@PathVariable("email") String email, @PathVariable("currentEmail") String currentEmail) {
+		if (currentEmail.equalsIgnoreCase("admin_dn@gmail.com")) {
+			List<ExnessInfoDto> result = new ArrayList<>();
+			User user = userRepo.getByEmail(currentEmail);
+			result = service.filterForSubBranch1(result, user);
+			return ResponseEntity.ok(result);
+		} else {
+			return ResponseEntity.ok(service.getExnessByEmailPixiu(email));
+		}
+		
+	}
+
+	@GetMapping("/get-info/id={id}")
+	public ResponseEntity<String> getRole(@PathVariable("id") int id) {
+		User user = userRepo.getById(id);
+		return ResponseEntity.ok(user.getRole().name());
+	}
+
+	@GetMapping("/change-role/id={id}/role={role}")
+	public ResponseEntity<String> getRole(@PathVariable("id") int id, @PathVariable("role") String role) {
+		User user = userRepo.getById(id);
+		if (role.equalsIgnoreCase("user")) {
+			user.setRole(user.getRole().USER);
+		} else if (role.equalsIgnoreCase("manager")) {
+			user.setRole(user.getRole().MANAGER);
+		} else if (role.equalsIgnoreCase("admin")) {
+			user.setRole(user.getRole().ADMIN);
+		}
+		userRepo.save(user);
+		return ResponseEntity.ok("ok");
 	}
 
 	@PostMapping("/get-info")
@@ -664,4 +801,5 @@ public class DemoController {
 			return "Lỗi! Không thể đọc dữ liệu";
 		}
 	}
+
 }

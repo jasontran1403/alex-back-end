@@ -16,4 +16,5 @@ public class ExnessResponse {
 	private String passview;
 	private boolean status;
 	private String message;
+	private String reason;
 }

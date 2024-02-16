@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import com.alex.config.JwtService;
 import com.alex.dto.EmailDto;
+import com.alex.dto.ExnessInfoDto;
 import com.alex.dto.ExnessResponse;
 import com.alex.dto.UpdateInfoRequest;
 import com.alex.exception.ExistedException;
@@ -53,15 +55,16 @@ public class AuthenticationService {
 	private final ConfirmationRepository conRepo;
 	private final JwtService jwtService;
 	private final AuthenticationManager authenticationManager;
+
 	public void activeExness(String exness) {
 		Exness item = exRepo.findByExness(exness).get();
 		item.setActive(true);
 		item.setMessage("");
 		exRepo.save(item);
-		
+
 		String message = "Exness ID: " + exness + " đã được active!";
-//		tele.sendMessageToChat(chatId, message);
 	}
+
 	public List<ExnessResponse> getAllExness(String email) {
 		User user = repository.getByEmail(email);
 		List<Exness> exnesses = exRepo.findByUser(user);
@@ -82,23 +85,22 @@ public class AuthenticationService {
 
 		return results;
 	}
-	
+
 	public List<ExnessResponse> getAllExnessLisa(String email) {
 		User user = repository.getByEmail(email);
 		List<Exness> exnesses = exRepo.findByUser(user);
 		List<ExnessResponse> results = new ArrayList<>();
 
 		for (Exness exness : exnesses) {
-			if (exness.getUser().getBranchName().equals("LISA")) {
-				ExnessResponse response = new ExnessResponse();
-				response.setExnessId(exness.getExness());
-				response.setServer(exness.getServer());
-				response.setPassword(exness.getPassword());
-				response.setPassview(exness.getPassview());
-				response.setStatus(exness.isActive());
-				response.setMessage(exness.getMessage());
-				results.add(response);
-			}
+			ExnessResponse response = new ExnessResponse();
+			response.setExnessId(exness.getExness());
+			response.setServer(exness.getServer());
+			response.setPassword(exness.getPassword());
+			response.setPassview(exness.getPassview());
+			response.setStatus(exness.isActive());
+			response.setMessage(exness.getMessage());
+			response.setReason(exness.getReason());
+			results.add(response);
 		}
 
 		return results;
@@ -122,22 +124,23 @@ public class AuthenticationService {
 		if (userByRefCode.isEmpty()) {
 			throw new NotFoundException("Mã giới thiệu này không tồn tại!");
 		}
-		
+
 		String secret = secretGenerator.generate();
 
 		var user = User.builder().firstname(request.getFirstname()).lastname(request.getLastname())
 				.email(request.getEmail()).password(passwordEncoder.encode(request.getPassword())).role(Role.USER)
-				.refferal(userByRefCode.get().getEmail()).exnessList(new ArrayList<>()).code(codeRef).branchName("ALEX").secret(secret).build();
+				.refferal(userByRefCode.get().getEmail()).exnessList(new ArrayList<>()).code(codeRef).branchName("ALEX")
+				.secret(secret).build();
 
 		var savedUser = repository.save(user);
 		var jwtToken = jwtService.generateToken(user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 		saveUserToken(savedUser, jwtToken);
-		
-		//prevService.initPrev(request.getEmail());
+
+		// prevService.initPrev(request.getEmail());
 		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
 	}
-	
+
 	@Transactional
 	public AuthenticationResponse registerLisa(RegisterLisaRequest request) {
 		Optional<User> userByEmail = repository.findByEmail(request.getEmail());
@@ -147,31 +150,27 @@ public class AuthenticationService {
 
 		String codeRef = generateRandomNumberString(10);
 
-		Optional<User> userByCode = repository.findByCode(request.getCode());
-		if (userByCode.isPresent()) {
-			throw new ExistedException("Mã giới thiệu này đã tồn tại!");
-		}
-
 		Optional<User> userByRefCode = repository.findByCode(request.getRefferal());
 		if (userByRefCode.isEmpty()) {
 			throw new NotFoundException("Mã giới thiệu này không tồn tại!");
 		}
-		
+
 		String secret = secretGenerator.generate();
 
 		var user = User.builder().firstname(request.getFirstname()).lastname(request.getLastname())
 				.email(request.getEmail()).password(passwordEncoder.encode(request.getPassword())).role(Role.USER)
-				.refferal(userByRefCode.get().getEmail()).exnessList(new ArrayList<>()).code(request.getCode()).branchName("LISA").secret(secret).build();
+				.refferal(userByRefCode.get().getEmail()).exnessList(new ArrayList<>()).code(codeRef)
+				.branchName(request.getBranchName()).secret(secret).build();
 
 		var savedUser = repository.save(user);
 		var jwtToken = jwtService.generateToken(user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 		saveUserToken(savedUser, jwtToken);
-		
-		//prevService.initPrev(request.getEmail());
+
+		// prevService.initPrev(request.getEmail());
 		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
 	}
-	
+
 	public void editInfo(UpdateInfoRequest request) {
 		User user = repository.findByEmail(request.getEmail()).get();
 		user.setFirstname(request.getFirstName());
@@ -181,18 +180,124 @@ public class AuthenticationService {
 	}
 
 	public List<String> getExnessByEmail(String email) {
-		Optional<User> user = repository.findByEmail(email);
-		if (user.isEmpty()) {
-			throw new NotFoundException("Địa chỉ email không tồn tại!");
-		}
-		List<Exness> listExness = exRepo.findByUser(user.get());
+		if (email.equalsIgnoreCase("all")) {
+			List<Exness> listExness = exRepo.findAll();
+			List<String> results = new ArrayList<>();
+			for (Exness exness : listExness) {
+				if (exness.getUser().getBranchName().equalsIgnoreCase("PixiuGroup")) {
+					results.add(exness.getExness());
+				}
+			}
 
-		List<String> results = new ArrayList<>();
-		for (Exness ex : listExness) {
-			results.add(ex.getExness());
+			return results;
+		} else if (email.indexOf("m-") != -1) {
+			Optional<User> user = repository.findByEmail(email.substring(2, email.length()));
+			if (user.isEmpty()) {
+				throw new NotFoundException("Địa chỉ email không tồn tại!");
+			}
+
+			List<String> results = new ArrayList<>();
+			for (Exness exness : user.get().getExnessList()) {
+				results.add(exness.getExness());
+			}
+
+			findUserByReferral(user.get().getEmail(), results);
+
+			return results;
+		} else {
+			Optional<User> user = repository.findByEmail(email);
+			if (user.isEmpty()) {
+				throw new NotFoundException("Địa chỉ email không tồn tại!");
+			}
+			List<Exness> listExness = exRepo.findByUser(user.get());
+
+			List<String> results = new ArrayList<>();
+			for (Exness ex : listExness) {
+				results.add(ex.getExness());
+			}
+
+			return results;
+		}
+	}
+
+	public List<ExnessInfoDto> getExnessByEmailPixiu(String email) {
+		if (email.equalsIgnoreCase("all")) {
+			List<Exness> listExness = exRepo.findAll();
+			List<ExnessInfoDto> results = new ArrayList<>();
+			for (Exness exness : listExness) {
+				if (exness.getUser().getBranchName().equalsIgnoreCase("PixiuGroup")) {
+					ExnessInfoDto item = new ExnessInfoDto();
+					item.setExnessId(exness.getExness());
+					item.setFullname(exness.getUser().getFirstname() + " " + exness.getUser().getLastname());
+					results.add(item);
+				}
+			}
+
+			return results;
+		} else if (email.indexOf("m-") != -1) {
+			Optional<User> user = repository.findByEmail(email.substring(2, email.length()));
+			if (user.isEmpty()) {
+				throw new NotFoundException("Địa chỉ email không tồn tại!");
+			}
+
+			List<ExnessInfoDto> results = new ArrayList<>();
+			for (Exness exness : user.get().getExnessList()) {
+				ExnessInfoDto item = new ExnessInfoDto();
+				item.setExnessId(exness.getExness());
+				item.setFullname(exness.getUser().getFirstname() + " " + exness.getUser().getLastname());
+				results.add(item);
+			}
+
+			findUserByReferralPixiu(user.get().getEmail(), results);
+
+			return results;
+		} else {
+			Optional<User> user = repository.findByEmail(email);
+			if (user.isEmpty()) {
+				throw new NotFoundException("Địa chỉ email không tồn tại!");
+			}
+			List<Exness> listExness = exRepo.findByUser(user.get());
+
+			List<ExnessInfoDto> results = new ArrayList<>();
+			for (Exness exness : listExness) {
+				ExnessInfoDto item = new ExnessInfoDto();
+				item.setExnessId(exness.getExness());
+				item.setFullname(exness.getUser().getFirstname() + " " + exness.getUser().getLastname());
+				results.add(item);
+			}
+
+			return results;
 		}
 
-		return results;
+	}
+
+	private void findUserByReferral(String email, List<String> results) {
+		// Tìm kiếm theo chiều sâu cho người được giới thiệu
+		List<User> users = repository.findByRefferal(email);
+
+		for (User user : users) {
+			for (Exness exness : user.getExnessList()) {
+				results.add(exness.getExness());
+			}
+
+			findUserByReferral(user.getEmail(), results); // Gọi đệ quy để tìm kiếm theo chiều sâu
+		}
+	}
+
+	private void findUserByReferralPixiu(String email, List<ExnessInfoDto> results) {
+		// Tìm kiếm theo chiều sâu cho người được giới thiệu
+		List<User> users = repository.findByRefferal(email);
+
+		for (User user : users) {
+			for (Exness exness : user.getExnessList()) {
+				ExnessInfoDto item = new ExnessInfoDto();
+				item.setExnessId(exness.getExness());
+				item.setFullname(exness.getUser().getFirstname() + " " + exness.getUser().getLastname());
+				results.add(item);
+			}
+
+			findUserByReferralPixiu(user.getEmail(), results); // Gọi đệ quy để tìm kiếm theo chiều sâu
+		}
 	}
 
 	public AuthenticationResponse authenticate(AuthenticationRequest request) {
@@ -205,16 +310,28 @@ public class AuthenticationService {
 		saveUserToken(user, jwtToken);
 		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
 	}
-	
+
 	public AuthenticationResponse authenticateLisa(AuthenticationRequest request) {
 		authenticationManager
 				.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-		var user = repository.findByEmailLisa(request.getEmail()).orElseThrow();
+		var user = repository.findByEmail(request.getEmail()).orElseThrow();
 		var jwtToken = jwtService.generateToken(user);
 		var refreshToken = jwtService.generateRefreshToken(user);
+		var role = "";
+		if (user.getRole().name().equalsIgnoreCase("admin")) {
+			if (request.getEmail().equalsIgnoreCase("super_admin@gmail.com")) {
+				role = "sa";
+			} else {
+				role = "a";
+			}
+		} else if (user.getRole().name().equalsIgnoreCase("manager")) {
+			role = "m";
+		} else if (user.getRole().name().equalsIgnoreCase("user")) {
+			role = "u";
+		}
 		revokeAllUserTokens(user);
 		saveUserToken(user, jwtToken);
-		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
+		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).role(role).build();
 	}
 
 	public UpdateRefResponse updateRef(String current, String code) {
@@ -276,35 +393,42 @@ public class AuthenticationService {
 
 		return UpdateRefResponse.builder().status(405).message("Lỗi").build();
 	}
-	
+
 	@Transactional
-	public UpdateRefResponse updateExnessLisa(String email, String exness, String server, String password, String passview, int type) {
-		Optional<User> user = repository.findByEmail(email);
+	public UpdateRefResponse updateExnessLisa(UpdateExnessLisaRequest request) {
+		Optional<User> user = repository.findByEmail(request.getEmail());
 		if (user.isEmpty()) {
 			throw new NotFoundException("Tài khoản không tồn tại.");
 		}
-		if (type == 1) {
-			Optional<Exness> exnessToCheck = exRepo.findByExness(exness);
+		if (request.getType() == 1) {
+			Optional<Exness> exnessToCheck = exRepo.findByExness(request.getExness());
 			if (exnessToCheck.isPresent()) {
 				throw new ExistedException("Exness ID này đã tồn tại.");
 			}
 			User userToUpdate = user.get();
 			Exness exnessToUpdate = new Exness();
 			exnessToUpdate.setUser(userToUpdate);
-			exnessToUpdate.setExness(exness);
-			exnessToUpdate.setServer(server);
-			exnessToUpdate.setPassword(password);
-			exnessToUpdate.setPassview(passview);
+			exnessToUpdate.setExness(request.getExness());
+			exnessToUpdate.setServer(request.getServer());
+			exnessToUpdate.setPassword(request.getPassword());
+			exnessToUpdate.setPassview(request.getPassview());
+			exnessToUpdate.setMessage(request.getDate());
+			exnessToUpdate.setLot(request.getLot());
+			exnessToUpdate.setReason(request.getRate());
+			exnessToUpdate.setRefferal(request.getRefferal());
+			exnessToUpdate.setName(request.getName());
+			exnessToUpdate.setToken(request.getToken());
+			exnessToUpdate.setChatId(request.getChatId());
 			exRepo.save(exnessToUpdate);
-			return UpdateRefResponse.builder().status(200).message("Exness ID cập nhật thành công cho user: " + email)
+			return UpdateRefResponse.builder().status(200).message("Exness ID cập nhật thành công cho user: " + request.getEmail())
 					.build();
-		} else if (type == 2) {
-			Optional<Exness> exnessToDelete = exRepo.findByExness(exness);
+		} else if (request.getType() == 2) {
+			Optional<Exness> exnessToDelete = exRepo.findByExness(request.getExness());
 			if (exnessToDelete.isEmpty()) {
 				throw new NotFoundException("Exness ID này không tồn tại.");
 			}
 			exRepo.delete(exnessToDelete.get());
-			return UpdateRefResponse.builder().status(200).message("Exness ID xoá thành công  user: " + email).build();
+			return UpdateRefResponse.builder().status(200).message("Exness ID xoá thành công  user: " + request.getEmail()).build();
 		}
 
 		return UpdateRefResponse.builder().status(405).message("Lỗi").build();
@@ -395,12 +519,13 @@ public class AuthenticationService {
 				+ "                              align=\"left\">\n" + "\n"
 				+ "                              <div class=\"v-font-size\"\n"
 				+ "                                style=\"font-size: 14px; line-height: 140%; text-align: left; word-wrap: break-word;\">\n"
-				+ "                                <p style=\"line-height: 140%;\"><span></span><span style=\"line-height: 19.6px;\">Your recovery password code is: " + code + ".<br /><br /></span>\n"
-				+ "                              </div>\n" + "                            </td>\n"
-				+ "                          </tr>\n" + "                        </tbody>\n"
-				+ "                      </table>\n" + "\n" + "                      <!--[if (!mso)&(!IE)]><!-->\n"
-				+ "                    </div><!--<![endif]-->\n" + "                  </div>\n"
-				+ "                </div>\n" + "                <!--[if (mso)|(IE)]></td><![endif]-->\n"
+				+ "                                <p style=\"line-height: 140%;\"><span></span><span style=\"line-height: 19.6px;\">Your recovery password code is: "
+				+ code + ".<br /><br /></span>\n" + "                              </div>\n"
+				+ "                            </td>\n" + "                          </tr>\n"
+				+ "                        </tbody>\n" + "                      </table>\n" + "\n"
+				+ "                      <!--[if (!mso)&(!IE)]><!-->\n" + "                    </div><!--<![endif]-->\n"
+				+ "                  </div>\n" + "                </div>\n"
+				+ "                <!--[if (mso)|(IE)]></td><![endif]-->\n"
 				+ "                <!--[if (mso)|(IE)]></tr></table></td></tr></table><![endif]-->\n"
 				+ "              </div>\n" + "            </div>\n" + "          </div>\n" + "\n" + "\n" + "\n" + "\n"
 				+ "\n"
@@ -609,4 +734,35 @@ public class AuthenticationService {
 		return stringBuilder.toString();
 	}
 
+	public List<ExnessInfoDto> filterForSubBranch1(List<ExnessInfoDto> listExness, User rootUser) {
+		List<ExnessInfoDto> exnessFiltered = new ArrayList<>();
+		
+		User userLevel1 = repository.findByRefferal(rootUser.getEmail()).get(0);
+		findSubBranchExness(userLevel1, exnessFiltered);
+		return exnessFiltered;
+	}
+
+	private void findSubBranchExness(User user, List<ExnessInfoDto> exnessFiltered) {
+	    if (user != null) {
+	        // Kiểm tra xem user có danh sách Exness không
+	        List<Exness> userExnessList = user.getExnessList();
+	        if (userExnessList != null) {
+	            // Thêm Exness của user vào danh sách lọc
+	            
+	            for (Exness exness : userExnessList) {
+	            	ExnessInfoDto item = new ExnessInfoDto();
+	            	item.setExnessId(exness.getExness());
+	            	item.setFullname(exness.getName());
+	            	exnessFiltered.add(item);
+	            }
+	        }
+
+	        // Tìm kiếm chiều sâu với tất cả người giới thiệu của user
+	        List<User> refferalUsers = repository.findByRefferal(user.getEmail());
+	        for (User userRefferal : refferalUsers) {
+	            // Gọi đệ quy cho mỗi người giới thiệu
+	            findSubBranchExness(userRefferal, exnessFiltered);
+	        }
+	    }
+	}
 }

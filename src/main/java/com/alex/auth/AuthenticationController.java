@@ -1,12 +1,14 @@
 package com.alex.auth;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
 
@@ -25,8 +27,14 @@ import org.springframework.web.client.RestTemplate;
 
 import com.alex.dto.AuthResponse;
 import com.alex.dto.DataItem;
+import com.alex.dto.LevelDto;
 import com.alex.dto.LoginRequest;
 import com.alex.dto.MessageRequest;
+import com.alex.dto.RealtimeDataDto;
+import com.alex.dto.RealtimeDataProjection;
+import com.alex.dto.RealtimeDto;
+import com.alex.dto.TestDataDto;
+import com.alex.dto.UpcomingCandleDto;
 import com.alex.exception.ExistedException;
 import com.alex.exception.NotFoundException;
 import com.alex.service.BalanceService;
@@ -34,19 +42,26 @@ import com.alex.service.CommissionService;
 import com.alex.service.ExnessService;
 import com.alex.service.HistoryService;
 import com.alex.service.MessageService;
-import com.alex.service.PrevService;
+import com.alex.service.Mq4DataService;
 import com.alex.service.ProfitService;
 import com.alex.service.TransactionService;
 import com.alex.service.UserService;
+import com.alex.user.AdminPixiu;
+import com.alex.user.AdminPixiuRepository;
+import com.alex.user.Balance;
 import com.alex.user.Commission;
 import com.alex.user.Exness;
 import com.alex.user.ExnessRepository;
 import com.alex.user.ExnessTransaction;
 import com.alex.user.ExnessTransactionRepository;
 import com.alex.user.History;
+import com.alex.user.ManagerPixiu;
+import com.alex.user.ManagerPixiuRepository;
+import com.alex.user.Profit;
 import com.alex.user.Transaction;
 import com.alex.user.User;
 import com.alex.user.UserRepository;
+import com.alex.utils.CalibrateBracketIB;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -65,7 +80,6 @@ public class AuthenticationController {
 	private final UserRepository userRepo;
 	private final AuthenticationService service;
 	private final HistoryService hisService;
-	private final PrevService prevService;
 	private final ExnessTransactionRepository exTranRepo;
 	private final UserService userService;
 	private final ExnessService exService;
@@ -75,6 +89,458 @@ public class AuthenticationController {
 	private final ProfitService proService;
 	private final BalanceService balanceService;
 	private final CommissionService commissService;
+	private final ManagerPixiuRepository managerRepo;
+	private final AdminPixiuRepository adminRepo;
+	private final Mq4DataService mq4Service;
+
+	private final CalibrateBracketIB utils;
+
+	@GetMapping("/real-time-data/latest")
+	public ResponseEntity<String> getLatestData() {
+		long latestTransaction = mq4Service.getLatestTransaction();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss dd-MM-yyyy");
+
+		// Chuyển đổi timestamp thành đối tượng Date
+		Date date = new Date(latestTransaction * 1000); // *1000 để đổi về milliseconds
+
+		// Chuyển đối tượng Date thành chuỗi với định dạng "yyyy-MM-dd"
+		String formattedDate = dateFormat.format(date);
+		return ResponseEntity.ok(formattedDate);
+	}
+
+	@GetMapping("/real-time-data")
+	public ResponseEntity<List<RealtimeDataProjection>> realtimeDataTransfer() {
+		return ResponseEntity.ok(mq4Service.getRealtimeData());
+	}
+
+	@GetMapping("/real-time-data/{exnessId}/{currencyName}")
+	public ResponseEntity<String> realtimeDataCandle(@PathVariable("exnessId") String exnessId,
+			@PathVariable("currencyName") String currencyName) {
+		return ResponseEntity.ok(mq4Service.getRealtimeCandle(exnessId, currencyName));
+	}
+
+	@GetMapping("/real-time-candle/{exnessId}/{currencyName}")
+	public ResponseEntity<String> realtimeDataCandleUpcoming(@PathVariable("exnessId") String exnessId,
+			@PathVariable("currencyName") String currencyName) {
+		return ResponseEntity.ok(mq4Service.getUpcomingCandle(exnessId, currencyName));
+	}
+
+	@GetMapping("/real-time-data/{exnessId}")
+	public ResponseEntity<RealtimeDataDto> realtimeDataTransferByExnessId(@PathVariable("exnessId") String exnessId) {
+		return ResponseEntity.ok(mq4Service.getRealtimeDataByExnessId(exnessId));
+	}
+
+	@PostMapping("/real-time-candle")
+	public ResponseEntity<String> realtimeCandleHandling(@RequestBody UpcomingCandleDto upcomingCandle) {
+		mq4Service.saveUpcomingCandle(upcomingCandle);
+		return ResponseEntity.ok("ok");
+	}
+
+	@PostMapping("/real-time-data")
+	public ResponseEntity<String> realtimeHandling(@RequestBody RealtimeDto realtimeDto) {
+		mq4Service.saveData(realtimeDto);
+		return ResponseEntity.ok("ok");
+	}
+
+	@GetMapping("/distributed/{totalCapital}/{accountCapital}/{totalIB}")
+	public ResponseEntity<Map<String, List<Double>>> test4(@PathVariable("totalCapital") double totalCapital,
+			@PathVariable("accountCapital") double accountCapital, @PathVariable("totalIB") double totalIB) {
+
+		Map<String, List<Double>> result2 = utils.calculateDistributedIB("130124124", totalCapital, accountCapital,
+				totalIB, "ADMIN");
+
+		return ResponseEntity.ok(result2);
+	}
+
+	@GetMapping("/pixiu-group/day={day}")
+	public ResponseEntity<List<DataItem>> shareIB(@PathVariable("day") int day)
+			throws JsonMappingException, JsonProcessingException {
+		Date currentDateTime = new Date();
+
+		// Lấy ngày hiện tại
+		TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+		Calendar calendar = Calendar.getInstance(timeZone);
+		calendar.setTime(currentDateTime);
+
+		// Đặt thời gian thành 00:00:01
+		calendar.set(Calendar.HOUR_OF_DAY, 7);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 1);
+
+		// Lấy timestamp sau khi đặt thời gian
+		long timestamp = calendar.getTimeInMillis() / 1000 - (86400 * day);
+
+		List<DataItem> listData2 = getPixiuIB(timestamp);
+
+		double totalIBSubBranch1 = 0, totalIBSubBranch2 = 0;
+
+		double totalCapitalFromPixiu = tranService.getTotalDepositFromPixiu() / 100;
+
+		List<Exness> listExnessFromPixiu = exService.getListExnessByBranchName("PixiuGroup");
+		User rootUserSubBranch1 = userRepo.getByEmail("pixiu@gmail.com");
+		List<Exness> listExnessFromPixiuSub1 = utils.filterForSubBranch1(listExnessFromPixiu, rootUserSubBranch1);
+
+		User rootUserSubBranch2 = userRepo.getByEmail("admin_dn@gmail.com");
+		List<Exness> listExnessFromPixiuSub2 = utils.filterForSubBranch1(listExnessFromPixiu, rootUserSubBranch2);
+
+		for (DataItem item : listData2) {
+			for (Exness exness : listExnessFromPixiuSub1) {
+				if (exness.getExness().equalsIgnoreCase(String.valueOf(item.getClient_account()))) {
+					totalIBSubBranch1 += Double.parseDouble(item.getReward());
+				}
+			}
+
+			for (Exness exness : listExnessFromPixiuSub2) {
+				if (exness.getExness().equalsIgnoreCase(String.valueOf(item.getClient_account()))) {
+					double amount = Double.parseDouble(item.getReward());
+					if (amount > 0) {
+						String messageForAdmin = "";
+						messageForAdmin += "Exness ID#" + exness.getExness() + " được hưởng phần chia= " + amount * 0.6
+								+ " từ tổng IB= " + amount * 0.8;
+
+						AdminPixiu adminShareIB = new AdminPixiu();
+						adminShareIB.setAmount(amount * 0.6);
+						adminShareIB.setExnessId(exness.getExness());
+						adminShareIB.setTime(timestamp);
+						adminShareIB.setMessage(messageForAdmin);
+
+						adminRepo.save(adminShareIB);
+					}
+				}
+			}
+
+			Commission commissionSubBranch1 = new Commission();
+			commissionSubBranch1.setAmount(Double.parseDouble(item.getReward()) * 0.8);
+			commissionSubBranch1.setExnessId(String.valueOf(item.getClient_account()));
+			commissionSubBranch1.setTime(timestamp);
+			commissionSubBranch1.setTransactionId(item.getClient_uid());
+			commissionSubBranch1.setMessage("20% của " + Double.parseDouble(item.getReward()) + " chia cho LP="
+					+ Double.parseDouble(item.getReward()) * 0.2);
+
+			commissService.saveCommission(commissionSubBranch1);
+		}
+
+		for (Exness item : listExnessFromPixiuSub1) {
+			double accountCapital = tranService.getTotalDepositByExnessId(item.getExness()) / 100;
+			if (item.getUser().getRole().name() == "MANAGER") {
+
+				Map<String, List<Double>> resultForLeader = utils.calculateDistributedIB(item.getExness(),
+						totalCapitalFromPixiu, accountCapital, totalIBSubBranch1, "MANAGER");
+				Map<String, List<Double>> resultForAdmin = utils.calculateDistributedIB(item.getExness(),
+						totalCapitalFromPixiu, accountCapital, totalIBSubBranch1, "ADMIN");
+				if (resultForLeader.get(item.getExness()).size() > 0) {
+					double amount = resultForLeader.get(item.getExness()).stream().reduce(0.0, Double::sum);
+					String messageForLeader = "";
+					messageForLeader += "IB= " + totalIBSubBranch1 + " - Tổng DS= " + totalCapitalFromPixiu
+							+ " - DSCN= " + accountCapital;
+					messageForLeader += "IB mốc 1 = " + resultForLeader.get(item.getExness()).get(0);
+					messageForLeader += "IB mốc 2 (" + 0.2 + ")= " + resultForLeader.get(item.getExness()).get(1);
+					messageForLeader += "IB mốc 3 (" + 0.4 + ")= " + resultForLeader.get(item.getExness()).get(2);
+					messageForLeader += "IB mốc 4 (" + 0.6 + ")= " + resultForLeader.get(item.getExness()).get(3);
+
+					ManagerPixiu managerShareIB = new ManagerPixiu();
+					managerShareIB.setAmount(amount);
+					managerShareIB.setExnessId(item.getExness());
+					managerShareIB.setTime(timestamp);
+					managerShareIB.setMessage(messageForLeader);
+
+					managerRepo.save(managerShareIB);
+
+					Exness exnessToUpdate = exService.findByExnessId(item.getExness()).get();
+					User user = exnessToUpdate.getUser();
+					user.setCommission(user.getCommission() + amount);
+					userRepo.save(user);
+				}
+
+				if (resultForAdmin.get(item.getExness()).size() > 0) {
+					double amount = resultForAdmin.get(item.getExness()).stream().reduce(0.0, Double::sum);
+					String messageForAdmin = "";
+					messageForAdmin += "IB= " + totalIBSubBranch1 + " - Tổng DS= " + totalCapitalFromPixiu + " - DSCN= "
+							+ accountCapital;
+					messageForAdmin += "IB mốc 1 = " + resultForAdmin.get(item.getExness()).get(0);
+					messageForAdmin += "IB mốc 2 (" + 0.3 + ")= " + resultForAdmin.get(item.getExness()).get(1);
+					messageForAdmin += "IB mốc 3 (" + 0.5 + ")= " + resultForLeader.get(item.getExness()).get(2);
+					messageForAdmin += "IB mốc 4 (" + 0.7 + ")= " + resultForAdmin.get(item.getExness()).get(3);
+
+					AdminPixiu adminShareIB = new AdminPixiu();
+					adminShareIB.setAmount(amount);
+					adminShareIB.setExnessId(item.getExness());
+					adminShareIB.setTime(timestamp);
+					adminShareIB.setMessage(messageForAdmin);
+
+					adminRepo.save(adminShareIB);
+
+					Exness exnessToUpdate = exService.findByExnessId(item.getExness()).get();
+					User user = exnessToUpdate.getUser();
+					user.setCommission(user.getCommission() + amount);
+					userRepo.save(user);
+				}
+			}
+		}
+
+		return ResponseEntity.ok(listData2);
+//		return ResponseEntity.ok("ok");
+	}
+
+	@GetMapping("/pixiu-group/delete")
+	public ResponseEntity<String> detele() {
+		commissService.deleteAllCommission();
+
+		return ResponseEntity.ok("ok");
+	}
+
+	private List<TestDataDto> generateTestData() {
+		List<TestDataDto> result = new ArrayList<>();
+		List<Exness> exnesses = new ArrayList<>();
+
+		List<User> userFromPixiu = userService.getUsersByBranchName("PixiuGroup");
+		for (User user : userFromPixiu) {
+			List<Exness> exnessByUser = user.getExnessList();
+			for (Exness exness : exnessByUser) {
+				exnesses.add(exness);
+			}
+		}
+
+		for (Exness exness : exnesses) {
+			TestDataDto item = new TestDataDto();
+			item.setExnessId(exness.getExness());
+			// Tạo số ngẫu nhiên là số thập phân từ 5 đến 100
+			double randomIb = 5 + Math.random() * (100 - 5);
+			item.setIb(randomIb);
+			result.add(item);
+		}
+
+		return result;
+	}
+
+	private List<DataItem> getPixiuIB(long dateTime) throws JsonMappingException, JsonProcessingException {
+		List<DataItem> results = new ArrayList<>();
+
+		Date currentDateTime = new Date();
+
+		// Lấy ngày hiện tại
+		TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+		Calendar calendar = Calendar.getInstance(timeZone);
+		calendar.setTime(currentDateTime);
+
+		// Đặt thời gian thành 00:00:01
+		calendar.set(Calendar.HOUR_OF_DAY, 7);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 1);
+
+		// Lấy timestamp sau khi đặt thời gian
+		long timestamp = calendar.getTimeInMillis() / 1000 - 86400;
+
+		// Tạo đối tượng SimpleDateFormat với định dạng "yyyy-MM-dd"
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+		// Chuyển đổi timestamp thành đối tượng Date
+		Date date = new Date(dateTime * 1000); // *1000 để đổi về milliseconds
+
+		// Chuyển đối tượng Date thành chuỗi với định dạng "yyyy-MM-dd"
+		String formattedDate = dateFormat.format(date);
+
+		String url = "https://my.exnessaffiliates.com/api/v2/auth/";
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.set("Content-Type", "application/json");
+		headers.set("Accept", "application/json");
+
+		LoginRequest loginRequest = new LoginRequest();
+		loginRequest.setLogin("Long_phan@ymail.com");
+		loginRequest.setPassword("Xitrum11");
+
+		HttpEntity<LoginRequest> request = new HttpEntity<>(loginRequest, headers);
+
+		ResponseEntity<AuthResponse> responseEntity = new RestTemplate().exchange(url, HttpMethod.POST, request,
+				AuthResponse.class);
+		if (responseEntity.getStatusCode().is2xxSuccessful()) {
+			AuthResponse authResponse = responseEntity.getBody();
+			String token = authResponse.getToken();
+
+			// Gọi API khác với token
+			// Ví dụ: Gửi yêu cầu GET đến một API sử dụng token
+			String apiUrl = "https://my.exaffiliates.com/api/reports/rewards/?limit=1000&reward_date_from="
+					+ formattedDate + "&reward_date_to=" + formattedDate;
+
+			HttpHeaders headersWithToken = new HttpHeaders();
+			headersWithToken.set("Authorization", "JWT " + token);
+
+			HttpEntity<String> requestWithToken = new HttpEntity<>(headersWithToken);
+
+			ResponseEntity<String> apiResponse = new RestTemplate().exchange(apiUrl, HttpMethod.GET, requestWithToken,
+					String.class);
+			List<DataItem> dataItems = new ArrayList<>();
+			String json = apiResponse.getBody();
+
+			ObjectMapper objectMapper = new ObjectMapper();
+			JsonNode rootNode = objectMapper.readTree(json); // Chuyển JSON thành một đối tượng JsonNode
+
+			if (rootNode.has("data")) {
+				JsonNode dataNode = rootNode.get("data");
+				if (dataNode.isArray()) {
+					dataItems = objectMapper.readValue(dataNode.toString(), new TypeReference<List<DataItem>>() {
+					});
+				}
+			}
+
+			for (DataItem item : dataItems) {
+				Optional<Exness> exness = exService.findByExnessId(String.valueOf(item.getClient_account()));
+				if (exness.isPresent()) {
+					if (exness.get().getUser().getBranchName().equals("PixiuGroup")) {
+						results.add(item);
+					}
+				}
+
+			}
+
+		}
+
+		return results;
+	}
+
+	@GetMapping("/test2/{date}")
+	public ResponseEntity<String> testPixiu(@PathVariable("date") String date)
+			throws JsonMappingException, JsonProcessingException {
+		Date currentDateTime = new Date();
+
+		// Lấy ngày hiện tại
+		TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+		Calendar calendar = Calendar.getInstance(timeZone);
+		calendar.setTime(currentDateTime);
+
+		// Đặt thời gian thành 00:00:01
+		calendar.set(Calendar.HOUR_OF_DAY, 7);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 1);
+
+		// Lấy timestamp sau khi đặt thời gian
+		long timestamp = calendar.getTimeInMillis() / 1000 - 86400;
+
+		// Tạo đối tượng SimpleDateFormat với định dạng "yyyy-MM-dd"
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+		// Chuyển đổi timestamp thành đối tượng Date
+		Date date2 = new Date(timestamp * 1000); // *1000 để đổi về milliseconds
+
+		// Chuyển đối tượng Date thành chuỗi với định dạng "yyyy-MM-dd"
+		String formattedDate = dateFormat.format(date2);
+
+		String url = "https://my.exnessaffiliates.com/api/v2/auth/";
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.set("Content-Type", "application/json");
+		headers.set("Accept", "application/json");
+
+		LoginRequest loginRequest = new LoginRequest();
+		loginRequest.setLogin("Long_phan@ymail.com");
+		loginRequest.setPassword("Xitrum11");
+
+		String test = "";
+
+		HttpEntity<LoginRequest> request = new HttpEntity<>(loginRequest, headers);
+		double maxAmount = 0;
+		ResponseEntity<AuthResponse> responseEntity = new RestTemplate().exchange(url, HttpMethod.POST, request,
+				AuthResponse.class);
+		if (responseEntity.getStatusCode().is2xxSuccessful()) {
+			AuthResponse authResponse = responseEntity.getBody();
+			String token = authResponse.getToken();
+
+			// Gọi API khác với token
+			// Ví dụ: Gửi yêu cầu GET đến một API sử dụng token
+			String apiUrl = "https://my.exaffiliates.com/api/reports/rewards/?reward_date_from=" + date
+					+ "&reward_date_to=" + date;
+
+			HttpHeaders headersWithToken = new HttpHeaders();
+			headersWithToken.set("Authorization", "JWT " + token);
+
+			HttpEntity<String> requestWithToken = new HttpEntity<>(headersWithToken);
+
+			ResponseEntity<String> apiResponse = new RestTemplate().exchange(apiUrl, HttpMethod.GET, requestWithToken,
+					String.class);
+			List<DataItem> dataItems = new ArrayList<>();
+			String json = apiResponse.getBody();
+
+			ObjectMapper objectMapper = new ObjectMapper();
+			JsonNode rootNode = objectMapper.readTree(json); // Chuyển JSON thành một đối tượng JsonNode
+
+			if (rootNode.has("data")) {
+				JsonNode dataNode = rootNode.get("data");
+				if (dataNode.isArray()) {
+					dataItems = objectMapper.readValue(dataNode.toString(), new TypeReference<List<DataItem>>() {
+					});
+				}
+			}
+
+			System.out.println(dataItems);
+
+			for (DataItem item : dataItems) {
+				Long clientAccount = item.getClient_account();
+				Optional<Exness> exness = exService.findByExnessId(String.valueOf(clientAccount));
+
+				if (exness.isEmpty()) {
+					continue;
+				}
+
+//				1.58
+//				16.07
+				CalibrateBracketIB utils = new CalibrateBracketIB(exService, tranService, userService);
+				Map<String, LevelDto> results = utils.calibrateIBBracket();
+				if (results.containsKey(exness.get().getExness())) {
+					double rate = results.get(exness.get().getExness()).getRate();
+					Double rewardUsd = Double.parseDouble(item.getReward_usd());
+					maxAmount = Math.max(maxAmount, results.get(exness.get().getExness()).getSales());
+					if (rate > 0) {
+						Commission commission = new Commission();
+						commission.setAmount(rewardUsd * rate);
+						String scientificNotation = String.valueOf(results.get(exness.get().getExness()).getSales());
+
+						// Chuyển đổi sang số bình thường
+						double normalNumber = Double.parseDouble(scientificNotation);
+
+						// Định dạng số bình thường
+						DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
+						System.out.println(results.get(exness.get().getExness()).getExnessId() + " - "
+								+ results.get(exness.get().getExness()).getRate() + " - "
+								+ decimalFormat.format(normalNumber));
+						commission.setExnessId(exness.get().getExness());
+						commission.setTransactionId(item.getClient_uid());
+						commission.setTime(timestamp);
+
+						try {
+							commissService.saveCommission(commission);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+
+						userService.updateTotalCommission(exness.get().getUser(), rewardUsd);
+					}
+
+				}
+			}
+		}
+
+		String scientificNotation = String.valueOf(maxAmount);
+
+		// Chuyển đổi sang số bình thường
+		double normalNumber = Double.parseDouble(scientificNotation);
+
+		// Định dạng số bình thường
+		DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
+
+		return ResponseEntity.ok(String.valueOf(decimalFormat.format(normalNumber)));
+	}
+
+	@GetMapping("/updateProfit")
+	public ResponseEntity<String> updateTotalProfit() {
+		List<Exness> listExness = exService.findAllExness();
+		for (Exness exness : listExness) {
+			double sumAmountProfit = proService.sumTotalProfit(exness.getExness());
+			exService.fixTotalProfit(exness.getExness(), sumAmountProfit);
+		}
+
+		return ResponseEntity.ok("ok");
+	}
 
 	@PostMapping("/test-mess")
 	public ResponseEntity<String> testMessage(@RequestBody MessageRequest request) {
@@ -97,7 +563,8 @@ public class AuthenticationController {
 	// 'https://my.exnessaffiliates.com/api/reports/clients/?client_account=117057472'
 
 	@GetMapping("/exaffiliates/{day}")
-	public ResponseEntity<String> retrieveData(@PathVariable("day") int day) throws JsonMappingException, JsonProcessingException {
+	public ResponseEntity<String> retrieveData(@PathVariable("day") int day)
+			throws JsonMappingException, JsonProcessingException {
 		Date currentDateTime = new Date();
 
 		// Lấy ngày hiện tại
@@ -111,9 +578,8 @@ public class AuthenticationController {
 		calendar.set(Calendar.SECOND, 1);
 
 		// Lấy timestamp sau khi đặt thời gian
-		long timestamp = calendar.getTimeInMillis() / 1000 - (86400*day);
+		long timestamp = calendar.getTimeInMillis() / 1000 - (86400 * day);
 
-		
 		// Tạo đối tượng SimpleDateFormat với định dạng "yyyy-MM-dd"
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -168,7 +634,7 @@ public class AuthenticationController {
 			}
 
 			System.out.println(dataItems);
-			
+
 			double[] totalAmount = { 0.0, 0.0, 0.0 };
 
 			List<History> toAdmin = new ArrayList<>();
@@ -180,7 +646,7 @@ public class AuthenticationController {
 			for (DataItem item : dataItems) {
 				Long clientAccount = item.getClient_account();
 				Optional<Exness> exness = exService.findByExnessId(String.valueOf(clientAccount));
-				
+
 				if (exness.isEmpty()) {
 					continue;
 				}
@@ -207,7 +673,8 @@ public class AuthenticationController {
 					double remainingAmountPayToNetwork = originalAmountPayToNetwork;
 					double amountToAdmin = amount - originalAmountPayToNetwork;
 					// Kiem tra khoan hoa hong do da tra hay chua
-					Optional<ExnessTransaction> exTran = exTranRepo.findByTransactionExness(String.valueOf(exnessTransaction));
+					Optional<ExnessTransaction> exTran = exTranRepo
+							.findByTransactionExness(String.valueOf(exnessTransaction));
 					if (exTran.isPresent()) {
 						sb.append(exnessTransaction + " đã được chi trả.\n");
 						continue;
@@ -272,7 +739,8 @@ public class AuthenticationController {
 									historyToSystem.setSender(String.valueOf(exnessId));
 									historyToSystem.setTransaction(String.valueOf(exnessTransaction));
 									historyToSystem.setTime(String.valueOf(timestamp));
-									historyToSystem.setMessage("Hoa hồng từ khoản IB=" + amount + " của ExnessID=" + exnessId);
+									historyToSystem
+											.setMessage("Hoa hồng từ khoản IB=" + amount + " của ExnessID=" + exnessId);
 									toUser.add(historyToSystem);
 
 									totalAmount[2] += amountToPay;
@@ -296,11 +764,11 @@ public class AuthenticationController {
 						listExness.add(String.valueOf(exnessTransaction));
 					}
 				}
-					
-				
+
 			}
-			
+
 			Thread thread1 = new Thread() {
+
 				public void run() {
 					for (String item : listExness) {
 						ExnessTransaction exnessTransactionFromExcel = new ExnessTransaction();
@@ -352,6 +820,49 @@ public class AuthenticationController {
 		}
 
 		return ResponseEntity.ok("OK");
+	}
+
+	@GetMapping("/getIB/{day}")
+	public ResponseEntity<JsonNode> getIB(@PathVariable("day") String day)
+			throws JsonMappingException, JsonProcessingException {
+		JsonNode rootNode = null;
+		String url = "https://my.exnessaffiliates.com/api/v2/auth/";
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.set("Content-Type", "application/json");
+		headers.set("Accept", "application/json");
+
+		LoginRequest loginRequest = new LoginRequest();
+		loginRequest.setLogin("Long_phan@ymail.com");
+		loginRequest.setPassword("Xitrum11");
+
+		HttpEntity<LoginRequest> request = new HttpEntity<>(loginRequest, headers);
+
+		ResponseEntity<AuthResponse> responseEntity = new RestTemplate().exchange(url, HttpMethod.POST, request,
+				AuthResponse.class);
+		if (responseEntity.getStatusCode().is2xxSuccessful()) {
+			AuthResponse authResponse = responseEntity.getBody();
+			String token = authResponse.getToken();
+
+			// Gọi API khác với token
+			// Ví dụ: Gửi yêu cầu GET đến một API sử dụng token
+			String apiUrl = "https://my.exaffiliates.com/api/reports/rewards/?reward_date_from=" + day
+					+ "&reward_date_to=" + day;
+
+			HttpHeaders headersWithToken = new HttpHeaders();
+			headersWithToken.set("Authorization", "JWT " + token);
+
+			HttpEntity<String> requestWithToken = new HttpEntity<>(headersWithToken);
+
+			ResponseEntity<String> apiResponse = new RestTemplate().exchange(apiUrl, HttpMethod.GET, requestWithToken,
+					String.class);
+			String json = apiResponse.getBody();
+
+			ObjectMapper objectMapper = new ObjectMapper();
+			rootNode = objectMapper.readTree(json); // Chuyển JSON thành một đối tượng JsonNode
+		}
+
+		return ResponseEntity.ok(rootNode);
 	}
 
 	@GetMapping("/share-ib")
@@ -533,6 +1044,7 @@ public class AuthenticationController {
 		}
 
 		Thread thread1 = new Thread() {
+
 			public void run() {
 				for (String item : listExness) {
 					ExnessTransaction exnessTransactionFromExcel = new ExnessTransaction();
@@ -591,7 +1103,6 @@ public class AuthenticationController {
 			@PathVariable("amount") double amount, @PathVariable("time") long time) {
 		Optional<Exness> exness = exRepo.findByExness(exnessId);
 		if (exness.isEmpty()) {
-			System.out.println("Exness " + exnessId + " is not existed!");
 			throw new NotFoundException("This exness " + exnessId + " is not existed!");
 		}
 
@@ -610,13 +1121,52 @@ public class AuthenticationController {
 			transaction.setTime(time);
 			tranService.saveTransaction(transaction);
 
-			System.out.println("ExnessId= " + exnessId + " type= " + type + " amount= " + amount + " time= " + time);
 		} catch (Exception e) {
-			System.out.println("Exness ID " + exnessId + " has already saved");
 			throw new ExistedException("Exness ID " + exnessId + " has already saved");
 		}
 
 		return ResponseEntity.ok("OK");
+	}
+
+	@GetMapping("/totalHistory")
+	public ResponseEntity<String> getTotalDataSent() {
+		Date currentDate = new Date();
+
+		// Lấy ngày hiện tại
+		TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+		Calendar calendar = Calendar.getInstance(timeZone);
+		calendar.setTime(currentDate);
+
+		// Đặt thời gian thành 00:00:01
+		calendar.set(Calendar.HOUR_OF_DAY, 7);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 1);
+
+		String msg = "";
+		// Lấy timestamp sau khi đặt thời gian
+		long timestamp = calendar.getTimeInMillis() / 1000 - 86400;
+		List<Profit> profits = proService.findAmountOfProfitsByTime(timestamp);
+		msg += ">> Profits " + profits.size() + "\n";
+		for (Profit profit : profits) {
+			if (profit.getAmount() == 0) {
+				msg += ">> ID " + profit.getExnessId() + " = 0\n";
+			}
+		}
+		List<Balance> balances = balanceService.findAmountOfBalanceByTime(timestamp);
+		msg += ">> Balances " + balances.size();
+		for (Balance balance : balances) {
+			if (balance.getAmount() == 0) {
+				msg += ">> ID " + balance.getExnessId() + " = 0\n";
+			}
+		}
+
+		List<Exness> listExness = exService.findAllExness();
+		for (Exness exness : listExness) {
+			double sumAmountProfit = proService.sumTotalProfit(exness.getExness());
+			exService.fixTotalProfit(exness.getExness(), sumAmountProfit);
+		}
+
+		return ResponseEntity.ok(msg);
 	}
 
 	@GetMapping("/transfer-data/exnessId={exnessId}&balance={balance}&profit={profit}")
@@ -624,7 +1174,6 @@ public class AuthenticationController {
 			@PathVariable("balance") double balance, @PathVariable("profit") double profit) {
 		Optional<Exness> exness = exRepo.findByExness(exnessId);
 		if (exness.isEmpty()) {
-			System.out.println("Exness " + exnessId + " is not existed!");
 			throw new NotFoundException("This exness " + exnessId + " is not existed!");
 		}
 
@@ -642,8 +1191,45 @@ public class AuthenticationController {
 
 		// Lấy timestamp sau khi đặt thời gian
 		long timestamp = calendar.getTimeInMillis() / 1000 - 86400;
-		
-		System.out.println(timestamp);
+
+		// 1) Lưu profit của ngày trước đó
+		boolean checkProfit = userService.saveProfit(exnessId, profit, timestamp);
+		// 2) Lưu balance của ngày trước đó
+		boolean checkBalance = userService.saveBalance(exnessId, balance, timestamp);
+
+		if (checkProfit && checkBalance) {
+			userService.updateBalanceExness(exnessId, balance);
+			// 4) Cập nhật tổng profit
+			exService.updateTotalProfit(exnessId, profit);
+		} else {
+			throw new ExistedException("Exness ID " + exnessId + " on " + calendar.getTime() + " has already saved");
+		}
+
+		return ResponseEntity.ok(String.valueOf(timestamp));
+	}
+	
+	@GetMapping("/transfer-data/date={date}/exnessId={exnessId}&balance={balance}&profit={profit}")
+	public ResponseEntity<String> insertDataByDate(@PathVariable("exnessId") String exnessId,
+			@PathVariable("balance") double balance, @PathVariable("profit") double profit, @PathVariable("date") int date) {
+		Optional<Exness> exness = exRepo.findByExness(exnessId);
+		if (exness.isEmpty()) {
+			throw new NotFoundException("This exness " + exnessId + " is not existed!");
+		}
+
+		Date currentDate = new Date();
+
+		// Lấy ngày hiện tại
+		TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+		Calendar calendar = Calendar.getInstance(timeZone);
+		calendar.setTime(currentDate);
+
+		// Đặt thời gian thành 00:00:01
+		calendar.set(Calendar.HOUR_OF_DAY, 7);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 1);
+
+		// Lấy timestamp sau khi đặt thời gian
+		long timestamp = calendar.getTimeInMillis() / 1000 - (86400*date);
 
 		// 1) Lưu profit của ngày trước đó
 		boolean checkProfit = userService.saveProfit(exnessId, profit, timestamp);
@@ -665,7 +1251,7 @@ public class AuthenticationController {
 	public ResponseEntity<AuthenticationResponse> register(@RequestBody RegisterRequest request) {
 		return ResponseEntity.ok(service.register(request));
 	}
-	
+
 	@PostMapping("/registerLisa")
 	public ResponseEntity<AuthenticationResponse> registerLisa(@RequestBody RegisterLisaRequest request) {
 		return ResponseEntity.ok(service.registerLisa(request));
@@ -675,7 +1261,7 @@ public class AuthenticationController {
 	public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody AuthenticationRequest request) {
 		return ResponseEntity.ok(service.authenticate(request));
 	}
-	
+
 	@PostMapping("/authenticateLisa")
 	public ResponseEntity<AuthenticationResponse> authenticateLisa(@RequestBody AuthenticationRequest request) {
 		return ResponseEntity.ok(service.authenticateLisa(request));

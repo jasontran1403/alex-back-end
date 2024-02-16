@@ -20,4 +20,20 @@ public class ProfitServiceImpl implements ProfitService {
 		return proRepo.findByAmountAndTimeAndExness(amount, time, exness);
 	}
 
+	@Override
+	public List<Profit> findAmountOfProfitsByTime(long time) {
+		// TODO Auto-generated method stub
+		return proRepo.findAmountOfProfitsByTime(time);
+	}
+
+	@Override
+	public double sumTotalProfit(String exnessId) {
+	    try {
+	        double result = proRepo.sumTotalProfit(exnessId);
+	        return result;
+	    } catch (Exception e) {
+	        return 0;
+	    }
+	}
+
 }

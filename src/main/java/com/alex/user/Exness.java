@@ -27,7 +27,10 @@ public class Exness {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
 	private String exness;
+	private String name;
 	private String server;
+	private String token;
+	private String chatId;
 	private String password;
 	private String passview;
 	private double balance;
@@ -37,6 +40,7 @@ public class Exness {
 	private boolean isSet;
 	private double totalProfit;
 	private boolean isActive;
+	private double lot;
 	@Column(columnDefinition="TEXT")
 	private String reason;
 	

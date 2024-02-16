@@ -6,4 +6,5 @@ import com.alex.user.Balance;
 
 public interface BalanceService {
 	List<Balance> findByAmountAndTimeAndExness(double amount, long time, String exness);
+	List<Balance> findAmountOfBalanceByTime(long time);
 }

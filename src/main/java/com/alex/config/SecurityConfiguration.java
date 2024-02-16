@@ -25,13 +25,15 @@ public class SecurityConfiguration {
 	private final AuthenticationProvider authenticationProvider;
 	private final LogoutService logoutService;
 
+	
+	
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 	    http.csrf().disable()
 	        .authorizeHttpRequests()
 	        .requestMatchers("/api/v1/auth/**", "/v2/api-docs", "/v3/api-docs", "/v3/api-docs/**",
 	                        "/swagger-resources", "/swagger-resources/**", "/configuration/ui", "/configuration/security",
-	                        "/swagger-ui/**", "/webjars/**", "/swagger-ui.html")
+	                        "/swagger-ui/**", "/webjars/**", "/swagger-ui.html", "/index", "/assets/**", "/plugins/**")
 	        .permitAll()
 	        
 	        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
@@ -46,9 +48,9 @@ public class SecurityConfiguration {
 	        .authenticationProvider(authenticationProvider)
 	        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 	        
-	    http.exceptionHandling()
-	    .authenticationEntryPoint(new CustomAuthenticationEntryPoint())
-	    .accessDeniedHandler(new CustomAccessDeniedHandler());
+//	    http.exceptionHandling()
+//	    .authenticationEntryPoint(new CustomAuthenticationEntryPoint())
+//	    .accessDeniedHandler(new CustomAccessDeniedHandler());
 
 	    http.cors();
 

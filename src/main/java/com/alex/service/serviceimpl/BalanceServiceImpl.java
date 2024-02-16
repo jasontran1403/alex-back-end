@@ -20,4 +20,10 @@ public class BalanceServiceImpl implements BalanceService{
 		return balanceRepo.findByAmountAndTimeAndExness(amount, time, exness);
 	}
 
+	@Override
+	public List<Balance> findAmountOfBalanceByTime(long time) {
+		// TODO Auto-generated method stub
+		return balanceRepo.findAmountOfBalancesByTime(time);
+	}
+
 }

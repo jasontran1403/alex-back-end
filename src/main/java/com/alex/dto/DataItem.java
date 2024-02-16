@@ -11,7 +11,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class DataItem {
 	private long id;
-    private String reward_date; // Thêm thuộc tính rewardDate
+    private String reward_date;
+    private String reward_datetime;
     private String partner_account;
     private String client_account_type;
     private String country;

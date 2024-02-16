@@ -17,4 +17,5 @@ public class RegisterLisaRequest {
   private String password;
   private String code;
   private String refferal;
+  private String branchName;
 }

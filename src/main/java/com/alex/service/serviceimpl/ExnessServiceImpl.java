@@ -1,5 +1,8 @@
 package com.alex.service.serviceimpl;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -113,6 +116,59 @@ public class ExnessServiceImpl implements ExnessService {
 			profit += item.getTotalProfit();
 		}
 		return profit;
+	}
+
+	@Override
+	public List<Exness> findAllExness() {
+		// TODO Auto-generated method stub
+		return exRepo.findAll();
+	}
+
+	@Override
+	public void fixTotalProfit(String exnessId, double amount) {
+		// TODO Auto-generated method stub
+		Exness exness = exRepo.findByExness(exnessId).get();
+		exness.setTotalProfit(amount);
+		exRepo.save(exness);
+	}
+
+	@Override
+	public List<Exness> getListExnessByBranchName(String branchName) {
+		// TODO Auto-generated method stub
+		List<Exness> listExness = exRepo.findAll();
+		List<Exness> result = new ArrayList<>();
+		
+		for (Exness exness : listExness) {
+			if (exness.getUser().getBranchName().equalsIgnoreCase(branchName)) {
+				result.add(exness);
+			}
+		}
+		
+		return result;
+	}
+
+	@Override
+	public List<Exness> findAllByBranchName(String branchName) {
+		// TODO Auto-generated method stub
+		List<Exness> results = new ArrayList<>();
+		
+		List<User> allUsers = userRepo.getUsersByBranchName(branchName);
+		
+		for (User user : allUsers) {
+			for (Exness exness : user.getExnessList()) {
+				results.add(exness);
+			}
+		}
+		
+		return results;
+	}
+
+	@Override
+	public List<Exness> findListExnessByRootUser(User rootUser) {
+		// TODO Auto-generated method stub
+		List<Exness> listExnesses = new ArrayList<>();
+		
+		return listExnesses;
 	}
 
 }
