@@ -1,19 +1,14 @@
 package com.alex.service.serviceimpl;
 
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.alex.dto.RealtimeDataDto;
-import com.alex.dto.RealtimeDataProjection;
 import com.alex.dto.RealtimeDto;
-import com.alex.dto.RealtimeItemDto;
 import com.alex.dto.UpcomingCandleDto;
 import com.alex.service.Mq4DataService;
 import com.alex.user.Mq4Data;
@@ -44,7 +39,15 @@ public class Mq4DataServiceImpl implements Mq4DataService {
 			data.get().setCurrentCandle(realtimeDto.getCurrentCandle());
 			data.get().setLot(realtimeDto.getLot());
 			data.get().setLastestUpdated(time);
-
+			data.get().setInitLot(realtimeDto.getInitLot());
+			data.get().setInitSpread(realtimeDto.getInitSpread());
+			data.get().setMagic1(realtimeDto.getMagic1());
+			data.get().setMagic2(realtimeDto.getMagic2());
+			
+			boolean isActivated = realtimeDto.getIsActived() == 1 ? true : false;
+			boolean isRunning = realtimeDto.getIsRunning() == 1 ? true : false;
+			data.get().setActived(isActivated);
+			data.get().setRunning(isRunning);
 			mq4Repo.save(data.get());
 		} else {
 			Mq4Data newData = new Mq4Data();
@@ -56,51 +59,19 @@ public class Mq4DataServiceImpl implements Mq4DataService {
 			newData.setCurrentCandle(realtimeDto.getCurrentCandle());
 			newData.setLot(realtimeDto.getLot());
 			newData.setLastestUpdated(time);
-
+			newData.setInitLot(realtimeDto.getInitLot());
+			newData.setInitSpread(realtimeDto.getInitSpread());
+			newData.setMagic1(realtimeDto.getMagic1());
+			newData.setMagic2(realtimeDto.getMagic2());
+			boolean isActivated = realtimeDto.getIsActived() == 1 ? true : false;
+			boolean isRunning = realtimeDto.getIsRunning() == 1 ? true : false;
+			newData.setActived(isActivated);
+			newData.setRunning(isRunning);
 			mq4Repo.save(newData);
 		}
 	}
 
-	@Override
-	public List<RealtimeDataProjection> getRealtimeData() {
-		// TODO Auto-generated method stub
-		return mq4Repo.getAllRealtimeData();
-	}
 
-	@Override
-	public RealtimeDataDto getRealtimeDataByExnessId(String exnessId) {
-		// TODO Auto-generated method stub
-		List<Mq4Data> listDataFromExness = mq4Repo.getRealtimeDataByExnessId(exnessId);
-		RealtimeDataDto results = new RealtimeDataDto();
-		List<RealtimeItemDto> dataItem = new ArrayList<>();
-		for (Mq4Data item : listDataFromExness) {
-			RealtimeItemDto itemConvert = new RealtimeItemDto();
-			itemConvert.setName(item.getCurrencyName());
-			itemConvert.setValue(Math.abs(item.getCurrencyEquity()));
-			itemConvert.setCandle(item.getCurrentCandle());
-
-			if (item.getCurrencyEquity() > 0) {
-				itemConvert.setType(0);
-			} else {
-				double ratio = Math.abs(item.getCurrencyEquity()) / item.getCurrentBalance();
-
-				if (ratio < 0.1) {
-					itemConvert.setType(1);
-				} else if (ratio >= 0.1 && ratio <= 0.2) {
-					itemConvert.setType(2);
-				} else {
-					itemConvert.setType(3);
-				}
-			}
-
-			dataItem.add(itemConvert);
-		}
-
-		results.setExnessId(exnessId);
-		results.setRealtimeData(dataItem);
-
-		return results;
-	}
 
 	@Override
 	public String getRealtimeCandle(String exnessId, String currencyName) {
@@ -118,6 +89,7 @@ public class Mq4DataServiceImpl implements Mq4DataService {
 			}else if (number == 1440) {
 				result = "D1";
 			}
+			
 			return result;
 		}
 		throw new RuntimeException("Không có dữ liệu của cặp " + currencyName + " từ ExnessId#" + exnessId);

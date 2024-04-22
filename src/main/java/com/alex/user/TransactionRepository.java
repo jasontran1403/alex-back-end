@@ -17,4 +17,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>{
 	
 	@Query(value="select COALESCE(SUM(amount), 0) from transaction where exness_id = ?1 and type = 'Deposit'", nativeQuery = true)
 	double getTotalDepositByExnessId(String exnessId);
+	
+	@Query(value="select COALESCE(SUM(amount), 0) from transaction where exness_id = ?1 and type = 'Deposit' and time <= ?2", nativeQuery = true)
+	double getTotalDepositPixiuByExnessId(String exnessId, long time);
+	
+	@Query(value="select COALESCE(SUM(amount), 0) from transaction where exness_id = ?1 and type = 'Withdraw' and time <= ?2", nativeQuery = true)
+	double getTotalWithdrawPixiuByExnessId(String exnessId, long time);
 }

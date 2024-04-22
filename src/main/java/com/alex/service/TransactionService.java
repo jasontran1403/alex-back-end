@@ -9,5 +9,5 @@ public interface TransactionService {
 	Transaction saveTransaction(Transaction transaction);
 	List<Transaction> findByAmountAndTimeAndExness(double amount, long time, String exness);
 	double getTotalDepositByExnessId(String exnessId);
-	double getTotalDepositFromPixiu();
+	double getTotalDepositFromPixiu(long timestamp);
 }

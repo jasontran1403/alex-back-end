@@ -86,14 +86,17 @@ public class TransactionServiceImpl implements TransactionService{
 	}
 
 	@Override
-	public double getTotalDepositFromPixiu() {
+	public double getTotalDepositFromPixiu(long timestamp) {
 		// TODO Auto-generated method stub
 		List<Exness> listExnessFromPixiu = exService.findAllByBranchName("PixiuGroup");
 		
 		double result = 0.0;
 		
 		for (Exness exness : listExnessFromPixiu) {
-			result += transactionRepo.getTotalDepositByExnessId(exness.getExness());
+			double deposit = transactionRepo.getTotalDepositPixiuByExnessId(exness.getExness(), timestamp);
+			double withdraw = transactionRepo.getTotalWithdrawPixiuByExnessId(exness.getExness(), timestamp);
+			
+			result = result + deposit - withdraw;
 		}
 		
 		return result;

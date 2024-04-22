@@ -2,6 +2,7 @@ package com.alex.auth;
 
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -30,8 +31,6 @@ import com.alex.dto.DataItem;
 import com.alex.dto.LevelDto;
 import com.alex.dto.LoginRequest;
 import com.alex.dto.MessageRequest;
-import com.alex.dto.RealtimeDataDto;
-import com.alex.dto.RealtimeDataProjection;
 import com.alex.dto.RealtimeDto;
 import com.alex.dto.TestDataDto;
 import com.alex.dto.UpcomingCandleDto;
@@ -92,8 +91,56 @@ public class AuthenticationController {
 	private final ManagerPixiuRepository managerRepo;
 	private final AdminPixiuRepository adminRepo;
 	private final Mq4DataService mq4Service;
-
 	private final CalibrateBracketIB utils;
+	
+	@GetMapping("/testdate")
+	public ResponseEntity<String> testdate() {
+		Date currentDateTime = new Date();
+
+		// Lấy ngày hiện tại
+		TimeZone timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+		Calendar calendar = Calendar.getInstance(timeZone);
+		calendar.setTime(currentDateTime);
+
+		// Đặt thời gian thành 00:00:01
+		calendar.set(Calendar.HOUR_OF_DAY, 7);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 0);
+
+		// Lấy timestamp sau khi đặt thời gian
+		long timestamp = calendar.getTimeInMillis() / 1000;
+		
+		long unixTimestamp = convertToUnixTimestamp("2024-02-28", "GMT+7");
+		
+		return ResponseEntity.ok(currentDateTime + " - " + timestamp + " - " + unixTimestamp);
+	}
+	
+	public static long convertToUnixTimestamp(String dateString, String timeZoneId) {
+        try {
+            // Định dạng của chuỗi ngày
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            
+            // Đặt múi giờ cho đối tượng DateFormat
+            dateFormat.setTimeZone(TimeZone.getTimeZone(timeZoneId));
+            
+            // Chuyển đổi chuỗi ngày thành đối tượng Date
+            Date date = dateFormat.parse(dateString);
+            
+            // Sử dụng Calendar để thiết lập giờ, phút và giây
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(date);
+            calendar.set(Calendar.HOUR_OF_DAY, 0);
+            calendar.set(Calendar.MINUTE, 0);
+            calendar.set(Calendar.SECOND, 0);
+            
+            // Lấy giá trị Unix timestamp
+            long unixTimestamp = calendar.getTimeInMillis() / 1000; // Chia cho 1000 để chuyển từ mili giây sang giây
+            return unixTimestamp;
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return -1; // Trả về giá trị âm để chỉ ra lỗi
+        }
+    }
 
 	@GetMapping("/real-time-data/latest")
 	public ResponseEntity<String> getLatestData() {
@@ -108,11 +155,6 @@ public class AuthenticationController {
 		return ResponseEntity.ok(formattedDate);
 	}
 
-	@GetMapping("/real-time-data")
-	public ResponseEntity<List<RealtimeDataProjection>> realtimeDataTransfer() {
-		return ResponseEntity.ok(mq4Service.getRealtimeData());
-	}
-
 	@GetMapping("/real-time-data/{exnessId}/{currencyName}")
 	public ResponseEntity<String> realtimeDataCandle(@PathVariable("exnessId") String exnessId,
 			@PathVariable("currencyName") String currencyName) {
@@ -123,11 +165,6 @@ public class AuthenticationController {
 	public ResponseEntity<String> realtimeDataCandleUpcoming(@PathVariable("exnessId") String exnessId,
 			@PathVariable("currencyName") String currencyName) {
 		return ResponseEntity.ok(mq4Service.getUpcomingCandle(exnessId, currencyName));
-	}
-
-	@GetMapping("/real-time-data/{exnessId}")
-	public ResponseEntity<RealtimeDataDto> realtimeDataTransferByExnessId(@PathVariable("exnessId") String exnessId) {
-		return ResponseEntity.ok(mq4Service.getRealtimeDataByExnessId(exnessId));
 	}
 
 	@PostMapping("/real-time-candle")
@@ -174,7 +211,7 @@ public class AuthenticationController {
 
 		double totalIBSubBranch1 = 0, totalIBSubBranch2 = 0;
 
-		double totalCapitalFromPixiu = tranService.getTotalDepositFromPixiu() / 100;
+		double totalCapitalFromPixiu = tranService.getTotalDepositFromPixiu(timestamp) / 100;
 
 		List<Exness> listExnessFromPixiu = exService.getListExnessByBranchName("PixiuGroup");
 		User rootUserSubBranch1 = userRepo.getByEmail("pixiu@gmail.com");
@@ -209,15 +246,17 @@ public class AuthenticationController {
 				}
 			}
 
-			Commission commissionSubBranch1 = new Commission();
-			commissionSubBranch1.setAmount(Double.parseDouble(item.getReward()) * 0.8);
-			commissionSubBranch1.setExnessId(String.valueOf(item.getClient_account()));
-			commissionSubBranch1.setTime(timestamp);
-			commissionSubBranch1.setTransactionId(item.getClient_uid());
-			commissionSubBranch1.setMessage("20% của " + Double.parseDouble(item.getReward()) + " chia cho LP="
-					+ Double.parseDouble(item.getReward()) * 0.2);
+			if (Double.parseDouble(item.getReward()) > 0) {
+				Commission commissionSubBranch1 = new Commission();
+				commissionSubBranch1.setAmount(Double.parseDouble(item.getReward()) * 0.8);
+				commissionSubBranch1.setExnessId(String.valueOf(item.getClient_account()));
+				commissionSubBranch1.setTime(timestamp);
+				commissionSubBranch1.setTransactionId(item.getClient_uid());
+				commissionSubBranch1.setMessage("20% của " + Double.parseDouble(item.getReward()) + " chia cho LP="
+						+ Double.parseDouble(item.getReward()) * 0.2);
 
-			commissService.saveCommission(commissionSubBranch1);
+				commissService.saveCommission(commissionSubBranch1);
+			}
 		}
 
 		for (Exness item : listExnessFromPixiuSub1) {
@@ -238,18 +277,20 @@ public class AuthenticationController {
 					messageForLeader += "IB mốc 3 (" + 0.4 + ")= " + resultForLeader.get(item.getExness()).get(2);
 					messageForLeader += "IB mốc 4 (" + 0.6 + ")= " + resultForLeader.get(item.getExness()).get(3);
 
-					ManagerPixiu managerShareIB = new ManagerPixiu();
-					managerShareIB.setAmount(amount);
-					managerShareIB.setExnessId(item.getExness());
-					managerShareIB.setTime(timestamp);
-					managerShareIB.setMessage(messageForLeader);
+					if (amount > 0) {
+						ManagerPixiu managerShareIB = new ManagerPixiu();
+						managerShareIB.setAmount(amount);
+						managerShareIB.setExnessId(item.getExness());
+						managerShareIB.setTime(timestamp);
+						managerShareIB.setMessage(messageForLeader);
 
-					managerRepo.save(managerShareIB);
+						managerRepo.save(managerShareIB);
 
-					Exness exnessToUpdate = exService.findByExnessId(item.getExness()).get();
-					User user = exnessToUpdate.getUser();
-					user.setCommission(user.getCommission() + amount);
-					userRepo.save(user);
+						Exness exnessToUpdate = exService.findByExnessId(item.getExness()).get();
+						User user = exnessToUpdate.getUser();
+						user.setCommission(user.getCommission() + amount);
+						userRepo.save(user);
+					}
 				}
 
 				if (resultForAdmin.get(item.getExness()).size() > 0) {
@@ -262,24 +303,25 @@ public class AuthenticationController {
 					messageForAdmin += "IB mốc 3 (" + 0.5 + ")= " + resultForLeader.get(item.getExness()).get(2);
 					messageForAdmin += "IB mốc 4 (" + 0.7 + ")= " + resultForAdmin.get(item.getExness()).get(3);
 
-					AdminPixiu adminShareIB = new AdminPixiu();
-					adminShareIB.setAmount(amount);
-					adminShareIB.setExnessId(item.getExness());
-					adminShareIB.setTime(timestamp);
-					adminShareIB.setMessage(messageForAdmin);
+					if (amount > 0) {
+						AdminPixiu adminShareIB = new AdminPixiu();
+						adminShareIB.setAmount(amount);
+						adminShareIB.setExnessId(item.getExness());
+						adminShareIB.setTime(timestamp);
+						adminShareIB.setMessage(messageForAdmin);
 
-					adminRepo.save(adminShareIB);
+						adminRepo.save(adminShareIB);
 
-					Exness exnessToUpdate = exService.findByExnessId(item.getExness()).get();
-					User user = exnessToUpdate.getUser();
-					user.setCommission(user.getCommission() + amount);
-					userRepo.save(user);
+						Exness exnessToUpdate = exService.findByExnessId(item.getExness()).get();
+						User user = exnessToUpdate.getUser();
+						user.setCommission(user.getCommission() + amount);
+						userRepo.save(user);
+					}
 				}
 			}
 		}
 
 		return ResponseEntity.ok(listData2);
-//		return ResponseEntity.ok("ok");
 	}
 
 	@GetMapping("/pixiu-group/delete")
@@ -361,7 +403,7 @@ public class AuthenticationController {
 			// Gọi API khác với token
 			// Ví dụ: Gửi yêu cầu GET đến một API sử dụng token
 			String apiUrl = "https://my.exaffiliates.com/api/reports/rewards/?limit=1000&reward_date_from="
-					+ formattedDate + "&reward_date_to=" + formattedDate;
+					+ formattedDate + "&reward_date_to=" + formattedDate + "&limit=1000";
 
 			HttpHeaders headersWithToken = new HttpHeaders();
 			headersWithToken.set("Authorization", "JWT " + token);

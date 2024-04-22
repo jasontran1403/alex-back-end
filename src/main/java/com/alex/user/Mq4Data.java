@@ -27,4 +27,10 @@ public class Mq4Data {
 	private String upcomingCandle;
 	private double currentBalance;
 	private long lastestUpdated;
+	private double initLot;
+	private double initSpread;
+	private int magic1;
+	private int magic2;
+	private boolean isActived;
+	private boolean isRunning;
 }
