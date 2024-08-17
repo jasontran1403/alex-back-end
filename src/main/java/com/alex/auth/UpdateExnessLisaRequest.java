@@ -23,4 +23,5 @@ public class UpdateExnessLisaRequest {
 	private double lot;
 	private String token;
 	private String chatId;
+	private String teleId;
 }

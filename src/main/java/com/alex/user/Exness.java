@@ -29,10 +29,8 @@ public class Exness {
 	private String exness;
 	private String name;
 	private String server;
-	private String token;
-	private String chatId;
 	private String password;
-	private String passview;
+	private String teleId;
 	private double balance;
 	private double prevBalance;
 	private int level;
@@ -41,6 +39,8 @@ public class Exness {
 	private double totalProfit;
 	private boolean isActive;
 	private double lot;
+	private long latestUpdated;
+	private String status;
 	@Column(columnDefinition="TEXT")
 	private String reason;
 	

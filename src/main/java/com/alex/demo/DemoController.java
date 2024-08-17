@@ -128,7 +128,8 @@ public class DemoController {
 
 	@GetMapping("/get-all-exnessLisa/email={email}")
 	public ResponseEntity<List<ExnessResponse>> getLisa(@PathVariable("email") String email) {
-		List<ExnessResponse> listExness = service.getAllExnessLisa(email);
+		//List<ExnessResponse> listExness = service.getAllExnessLisa(email);
+		List<ExnessResponse> listExness = new ArrayList<>();
 		return ResponseEntity.ok(listExness);
 	}
 

@@ -1,23 +1,33 @@
 package com.alex.service.serviceimpl;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.alex.dto.OrderDto;
+import com.alex.dto.OrderListDto;
 import com.alex.dto.RealtimeDto;
 import com.alex.dto.UpcomingCandleDto;
 import com.alex.service.Mq4DataService;
 import com.alex.user.Mq4Data;
 import com.alex.user.Mq4DataRepository;
+import com.alex.user.OrderDetail;
+import com.alex.user.OrderDetailRepository;
 
 @Service
 public class Mq4DataServiceImpl implements Mq4DataService {
 	@Autowired
 	Mq4DataRepository mq4Repo;
+	@Autowired
+	OrderDetailRepository orderDetailRepo;
 
 	@Override
 	public void saveData(RealtimeDto realtimeDto) {
@@ -48,6 +58,23 @@ public class Mq4DataServiceImpl implements Mq4DataService {
 			boolean isRunning = realtimeDto.getIsRunning() == 1 ? true : false;
 			data.get().setActived(isActivated);
 			data.get().setRunning(isRunning);
+			data.get().setLotBuy(realtimeDto.getLotBuy());
+			data.get().setLotSell(realtimeDto.getLotSell());
+			data.get().setLargestLotBuy(realtimeDto.getLargestLotBuy());
+			data.get().setLargestLotSell(realtimeDto.getLargestLotSell());
+			data.get().setLotBuyDefault(realtimeDto.getLotBuyDefault());
+			data.get().setLotSellDefault(realtimeDto.getLotSellDefault());
+			data.get().setVersion(realtimeDto.getVersion());
+			data.get().setNewMagic(realtimeDto.getNewMagic());
+			data.get().setHedgMagic(realtimeDto.getHedgMagic());
+			
+			if (realtimeDto.getCurrentMagicBuy() > 0) {
+				data.get().setCurrentMagicBuy(realtimeDto.getCurrentMagicBuy());
+			}
+			if (realtimeDto.getCurrentMagicSell() > 0) {
+				data.get().setCurrentMagicSell(realtimeDto.getCurrentMagicSell());
+			}
+			data.get().setOldMagics(realtimeDto.getOldMagics());
 			mq4Repo.save(data.get());
 		} else {
 			Mq4Data newData = new Mq4Data();
@@ -67,6 +94,18 @@ public class Mq4DataServiceImpl implements Mq4DataService {
 			boolean isRunning = realtimeDto.getIsRunning() == 1 ? true : false;
 			newData.setActived(isActivated);
 			newData.setRunning(isRunning);
+			newData.setLotBuy(realtimeDto.getLotBuy());
+			newData.setLotSell(realtimeDto.getLotSell());
+			newData.setLargestLotBuy(realtimeDto.getLargestLotBuy());
+			newData.setLargestLotSell(realtimeDto.getLargestLotSell());
+			newData.setLotBuyDefault(realtimeDto.getLotBuyDefault());
+			newData.setLotSellDefault(realtimeDto.getLotSellDefault());
+			newData.setVersion(realtimeDto.getVersion());
+			newData.setNewMagic(realtimeDto.getNewMagic());
+			newData.setHedgMagic(realtimeDto.getHedgMagic());
+			newData.setCurrentMagicBuy(realtimeDto.getCurrentMagicBuy());
+			newData.setCurrentMagicSell(realtimeDto.getCurrentMagicSell());
+			newData.setOldMagics(realtimeDto.getOldMagics());
 			mq4Repo.save(newData);
 		}
 	}
@@ -123,4 +162,122 @@ public class Mq4DataServiceImpl implements Mq4DataService {
 		return mq4Repo.getLatestRealtimeData();
 	}
 
+
+
+	@Override
+	public double getAccumulateProfitByType(String exnessId, String currencyName, int type) {
+		Optional<Mq4Data> resultData = mq4Repo.findExistedData(exnessId, currencyName);
+		if (resultData.isPresent()) {
+			if (type == 1) {
+				// new magic
+				return resultData.get().getNewMagic();
+			} else if (type == 2) {
+				// hedg magic
+				return resultData.get().getHedgMagic();
+			}
+		}
+		throw new RuntimeException("");
+	}
+
+	@Override
+	public int getCurrentMagic(String exnessId, String currencyName, int type) {
+		Optional<Mq4Data> resultData = mq4Repo.findExistedData(exnessId, currencyName);
+		if (resultData.isPresent()) {
+			if (type == 1) {
+				// new magic
+				return resultData.get().getCurrentMagicBuy();
+			} else if (type == 2) {
+				// hedg magic
+				return resultData.get().getCurrentMagicSell();
+			}
+		} 
+		return 0;
+	}
+
+	@Override
+	public String getOldMagics(String exnessId, String currencyName) {
+		Optional<Mq4Data> resultData = mq4Repo.findExistedData(exnessId, currencyName);
+		if (resultData.isPresent()) {
+			return resultData.get().getOldMagics();
+		} else {
+			return "";
+		}
+	}
+
+
+
+	@Override
+	public void saveOrders(OrderListDto request) {
+		// TODO Auto-generated method stub
+		long start = System.currentTimeMillis();
+		StringBuilder operation = new StringBuilder();
+		
+		List<OrderDetail> orderDetails = new ArrayList<>();
+		
+//		System.out.println(request.getAccountName());
+//		System.out.println(request.getAccountServer());
+//		System.out.println(request.getSymbol());
+		
+		Optional<OrderDetail> lastestOrderDetail = orderDetailRepo.findLastestOrderByExnessIdAndSymbol(request.getExnessId(), request.getSymbol());
+		boolean isReadyToSave = false;
+		if (lastestOrderDetail.isPresent()) {
+			long current = System.currentTimeMillis()/1000;
+			long lastOrderTime = lastestOrderDetail.get().getServerTime();
+			long diff = current - lastOrderTime;
+			if (current > lastOrderTime && diff >= 60*30) {
+				isReadyToSave = true;
+				operation.append("add");
+			} else {
+				isReadyToSave = false;
+				operation.append("check");
+			}
+		} else {
+			isReadyToSave = true;
+			operation.append("add");
+		} 
+		
+		if (isReadyToSave) {
+			for (OrderDto item : request.getListOrders()) {
+				OrderDetail order = new OrderDetail();
+				order.setServerTime(convertTimeStringToUnix(request.getTime()));
+				order.setExnessId(request.getExnessId());
+				order.setTicket(item.getTicket());
+				order.setTime(item.getTime());
+				order.setType(item.getType());
+				order.setLot(item.getLot());
+				order.setSymbol(item.getSymbol());
+				order.setOpenPrice(item.getOpenPrice());
+				order.setCurrentPrice(item.getCurrentPrice());
+				order.setCommission(item.getCommission());
+				order.setSwap(item.getSwap());
+				order.setProfit(item.getProfit());
+				orderDetails.add(order);
+			}
+		}
+		
+		if (orderDetails.size() > 0) orderDetailRepo.saveAll(orderDetails);
+		
+		long end = System.currentTimeMillis();
+		System.out.println("Exness: " + request.getExnessId() + " symbol: " + request.getSymbol() + " count: " + request.getListOrders().size() + " time: " + convertTimeStringToUnix(request.getTime()) + " operation: " + operation.toString() + " take: " + (end-start) + "ms");
+	}
+
+	long convertTimeStringToUnix(String input) {
+		long result = 0;
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Set timezone to UTC
+        
+        try {
+            // Parse the date string to a Date object
+            Date date = dateFormat.parse(input);
+            
+            // Convert the Date object to a long representing the Unix timestamp
+            long unixTimestamp = date.getTime() / 1000; // Divide by 1000 to convert milliseconds to seconds
+            result = unixTimestamp;
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        
+        return result;
+
+	}
 }

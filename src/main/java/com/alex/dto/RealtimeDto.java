@@ -24,4 +24,16 @@ public class RealtimeDto {
 	private int magic2;
 	private int isActived;
 	private int isRunning;
+	private double lotBuy;
+	private double lotSell;
+	private double largestLotBuy;
+	private double largestLotSell;
+	private double lotBuyDefault = 0;
+	private double lotSellDefault = 0;
+	private String version;
+	private double newMagic;
+	private double hedgMagic;
+	private int currentMagicBuy;
+	private int currentMagicSell;
+	private String oldMagics;
 }
