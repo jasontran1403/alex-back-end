@@ -142,7 +142,8 @@ public class AuthenticationController {
 	@GetMapping("/accumulate/{exnessId}/{currencyName}/{type}")
 	public ResponseEntity<Double> accumulateByType(@PathVariable("exnessId") String exnessId,
 			@PathVariable("currencyName") String currencyName, @PathVariable("type") int type) {
-		return ResponseEntity.ok(mq4Service.getAccumulateProfitByType(exnessId, currencyName, type));
+		return ResponseEntity.ok(0.0);
+//		return ResponseEntity.ok(mq4Service.getAccumulateProfitByType(exnessId, currencyName, type));
 	}
 
 	@PostMapping("/real-time-candle")

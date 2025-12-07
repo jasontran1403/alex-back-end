@@ -17,11 +17,10 @@ import lombok.RequiredArgsConstructor;
 @CrossOrigin("*")
 public class LogoutService implements LogoutHandler {
 
-	private final TokenRepository tokenRepository;
+//	private final TokenRepository tokenRepository;
 
 	@Override
 	public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		final String authHeader = request.getHeader("Authorization");
 		final String jwt;
@@ -32,12 +31,12 @@ public class LogoutService implements LogoutHandler {
 		}
 
 		jwt = authHeader.substring(7);
-		var storedToken = tokenRepository.findByToken(jwt).orElse(null);
-		if (storedToken != null) {
-			storedToken.setExpired(true);
-			storedToken.setRevoked(true);
-			tokenRepository.save(storedToken);
-			SecurityContextHolder.clearContext();
-		}
+//		var storedToken = tokenRepository.findByToken(jwt).orElse(null);
+//		if (storedToken != null) {
+//			storedToken.setExpired(true);
+//			storedToken.setRevoked(true);
+//			tokenRepository.save(storedToken);
+//			SecurityContextHolder.clearContext();
+//		}
 	}
 }
